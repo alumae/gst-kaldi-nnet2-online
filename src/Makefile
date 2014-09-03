@@ -54,8 +54,8 @@ kaldimarshal.cc: kaldimarshal.list kaldimarshal.h
 clean: 
 	-rm -f *.o *.a $(TESTFILES) $(BINFILES) kaldimarshal.h kaldimarshal.cc
  
-# kaldimarshal.h kaldimarshal.cc 
-depend: 
+#
+depend:  kaldimarshal.h kaldimarshal.cc 
 	-$(CXX) -M $(CXXFLAGS) *.cc > .depend.mk  
 
 -include .depend.mk
