@@ -6,6 +6,8 @@ GStreamer plugin that wraps Kaldi's SingleUtteranceNnet2Decoder.
 HOW TO COMPILE IT
 -----------------
 
+The following works on Linux (I'm using Debian 'testing').
+
 Compile Kaldi trunk, using the shared configuration:
 In Kaldi's 'src' directory:
 
@@ -13,9 +15,11 @@ In Kaldi's 'src' directory:
 make depend
 make
 
-Now we can compil ethis plugin:
+Install gstreamer-1.0:
 
-Change to 'src' of this project:
+sudo apt-get install gstreamer1.0-plugins-bad  gstreamer1.0-plugins-base gstreamer1.0-plugins-good  gstreamer1.0-pulseaudio  gstreamer1.0-plugins-ugly  gstreamer1.0-tools libgstreamer1.0-dev
+
+Now we can compile this plugin. Change to 'src' of this project:
 
 cd src
 
