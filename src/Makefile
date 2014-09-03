@@ -1,6 +1,6 @@
 all:
 
-KALDI_ROOT:=/home/tanel/tools/kaldi-online
+KALDI_ROOT?=/home/tanel/tools/kaldi-online
 
 include $(KALDI_ROOT)/src/kaldi.mk
 ifneq ($(KALDI_FLAVOR), dynamic)
