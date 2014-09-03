@@ -1,0 +1,31 @@
+WHAT IT IS
+----------
+
+GStreamer plugin that wraps Kaldi's SingleUtteranceNnet2Decoder.
+
+HOW TO COMPILE IT
+-----------------
+
+Compile Kaldi trunk, using the shared configuration:
+In Kaldi's 'src' directory:
+
+./configure --shared
+make depend
+make
+
+Now we can compil ethis plugin:
+
+Change to 'src' of this project:
+
+cd src
+
+Compile, specifying Kaldi's root directory:
+
+KALDI_ROOT=/path/of/kaldi-trunk make
+
+This should result in 'libgstkaldionline2.so'.
+
+HOW TO USE IT
+-------------
+
+TODO
