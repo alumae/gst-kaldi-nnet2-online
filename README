@@ -25,9 +25,16 @@ cd src
 
 Compile, specifying Kaldi's root directory:
 
+make depend
 KALDI_ROOT=/path/of/kaldi-trunk make
 
 This should result in 'libgstkaldionline2.so'.
+
+Test id GStreamer can access the plugin:
+
+GST_PLUGIN_PATH=. gst-inspect-1.0 kaldinnet2onlinedecoder
+
+
 
 HOW TO USE IT
 -------------

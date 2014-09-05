@@ -102,7 +102,6 @@ struct _Gstkaldinnet2onlinedecoder
   nnet2::AmNnet *nnet;
   fst::Fst<fst::StdArc> *decode_fst;
   fst::SymbolTable *word_syms;
-  //OnlineNnet2FeaturePipeline *feature_pipeline;
 };
 
 struct _Gstkaldinnet2onlinedecoderClass 

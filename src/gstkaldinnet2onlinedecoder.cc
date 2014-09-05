@@ -1,57 +1,37 @@
 /*
  * GStreamer
- * Copyright (C) 2005 Thomas Vander Stichele <thomas@apestaart.org>
- * Copyright (C) 2005 Ronald S. Bultje <rbultje@ronald.bitfreak.net>
- * Copyright (C) 2014 Tanel Alumae <<user@hostname.org>>
+ * Copyright 2014 Tanel Alumae <tanel.alumae@phon.ioc.ee>
+ * Copyright 2014 Johns Hopkins University (author: Daniel Povey)
+ *
  * 
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
  *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Alternatively, the contents of this file may be used under the
- * GNU Lesser General Public License Version 2.1 (the "LGPL"), in
- * which case the following provisions apply instead of the ones
- * mentioned above:
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+ * WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+ * MERCHANTABLITY OR NON-INFRINGEMENT.
+ * See the Apache 2 License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 /**
  * SECTION:element-kaldinnet2onlinedecoder
  *
- * FIXME:Describe kaldinnet2onlinedecoder here.
+ * Converts speech to text using Kaldi's SingleUtteranceNnet2Decoder.
  *
- * <refsect2>
  * <title>Example launch line</title>
  * |[
- * gst-launch -v -m fakesrc ! kaldinnet2onlinedecoder ! fakesink silent=TRUE
+ * GST_PLUGIN_PATH=. gst-launch-1.0 --gst-debug="kaldinnet2onlinedecoder:5" -q \
+ * filesrc location=123_456.wav ! decodebin ! audioconvert ! audioresample ! \
+ * kaldinnet2onlinedecoder model=nnet2_online_ivector_online/final.mdl fst=tri3b/graph/HCLG.fst word-syms=tri3b/graph/words.txt \
+ * feature-type=mfcc mfcc-config=nnet2_online_ivector_online/conf/mfcc.conf \
+ * ivector-extraction-config=ivector_extractor.conf max-active=7000 beam=11.0 lattice-beam=5.0 \
+ * do-endpointing=true endpoint-silence-phones="1:2:3:4:5" ! filesink location=tmp.txt
  * ]|
  * </refsect2>
  */
@@ -766,11 +746,22 @@ static void gst_kaldinnet2onlinedecoder_finalize(GObject * object) {
   delete filter->endpoint_config;
   delete filter->feature_config;
   delete filter->nnet2_decoding_config;
-  if (filter->simple_options) {
-    delete filter->simple_options;
-    filter->simple_options = NULL;
+  delete filter->simple_options;
+  if (filter->feature_info) {
+    delete filter->feature_info;
   }
-
+  if (filter->trans_model) {
+    delete filter->trans_model;
+  }
+  if (filter->nnet) {
+    delete filter->nnet;
+  }
+  if (filter->decode_fst) {
+    delete filter->decode_fst;
+  }
+  if (filter->word_syms) {
+    delete filter->word_syms;
+  }
   G_OBJECT_CLASS(parent_class)->finalize(object);
 }
 
@@ -799,16 +790,19 @@ static gboolean kaldinnet2onlinedecoder_init(
  * compile this code. GST_PLUGIN_DEFINE needs PACKAGE to be defined.
  */
 #ifndef PACKAGE
-#define PACKAGE "myfirstkaldinnet2onlinedecoder"
+#define PACKAGE "Kaldi"
 #endif
 
 /* gstreamer looks for this structure to register kaldinnet2onlinedecoders
  *
  * exchange the string 'Template kaldinnet2onlinedecoder' with your kaldinnet2onlinedecoder description
+ *
+ * License is specified as "unknown" because gstreamer doesn't recognize "Apache" as
+ * a license and blacklists the module :S
  */
 GST_PLUGIN_DEFINE(GST_VERSION_MAJOR, GST_VERSION_MINOR, kaldinnet2onlinedecoder,
-                  "Template kaldinnet2onlinedecoder",
-                  kaldinnet2onlinedecoder_init, VERSION, "LGPL", "GStreamer",
+                  "kaldinnet2onlinedecoder",
+                  kaldinnet2onlinedecoder_init, VERSION, "unknown", "GStreamer",
                   "http://gstreamer.net/")
 }
 

@@ -1,6 +1,11 @@
 all:
 
-KALDI_ROOT?=/home/tanel/tools/kaldi-online
+KALDI_ROOT?=~/tools/kaldi-online
+
+ifeq ("$(wildcard $(KALDI_ROOT)/src/kaldi.mk)","")
+$(error Cannot find Kaldi's makefile $(KALDI_ROOT)/src/kaldi.mk. \
+Specify Kaldi's root directory using KALDI_ROOT when issuing make, e.g.: `KALDI_ROOT=~/tools/kaldi-trunk make` )
+endif
 
 include $(KALDI_ROOT)/src/kaldi.mk
 ifneq ($(KALDI_FLAVOR), dynamic)
