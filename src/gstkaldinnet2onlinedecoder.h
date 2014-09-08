@@ -84,6 +84,8 @@ struct _Gstkaldinnet2onlinedecoder
 
   GstPad *sinkpad, *srcpad;
 
+  GstCaps *sink_caps;
+
   gboolean silent;
   gboolean do_endpointing;
   GstBufferSource *audio_source;
@@ -102,6 +104,7 @@ struct _Gstkaldinnet2onlinedecoder
   nnet2::AmNnet *nnet;
   fst::Fst<fst::StdArc> *decode_fst;
   fst::SymbolTable *word_syms;
+  int sample_rate;
 };
 
 struct _Gstkaldinnet2onlinedecoderClass 
