@@ -224,9 +224,8 @@ static void gst_kaldinnet2onlinedecoder_init(
       filter->sinkpad, GST_DEBUG_FUNCPTR(gst_kaldinnet2onlinedecoder_chain));
   gst_pad_set_query_function(
       filter->sinkpad, GST_DEBUG_FUNCPTR(gst_kaldinnet2onlinedecoder_query));
-
+  gst_pad_use_fixed_caps(filter->sinkpad);
   gst_element_add_pad(GST_ELEMENT(filter), filter->sinkpad);
-
 
   filter->srcpad = gst_pad_new_from_static_template(&src_template, "src");
   gst_pad_use_fixed_caps(filter->srcpad);
@@ -565,9 +564,7 @@ static void gst_kaldinnet2onlinedecoder_loop(
     BaseFloat num_seconds_decoded = 0.0;
     while (true) {
       more_data = filter->audio_source->Read(&wave_part);
-      //GST_DEBUG_OBJECT(filter,  "Read %d samples", wave_part.Dim());
       feature_pipeline.AcceptWaveform(filter->sample_rate, wave_part);
-      //GST_DEBUG_OBJECT(filter,  "Advancing decoding..");
       if (!more_data) {
         feature_pipeline.InputFinished();
       }
@@ -628,40 +625,6 @@ gst_kaldinnet2onlinedecoder_query (GstPad *pad, GstObject * parent, GstQuery * q
             "rate", G_TYPE_INT, filter->sample_rate,
             "channels", G_TYPE_INT, 1, NULL);
 
-
-//      GstPad *otherpad;
-//      GstCaps *temp, *caps, *filt, *tcaps;
-//      gint i;
-//
-//      otherpad = (pad == filter->srcpad) ? filter->sinkpad :
-//                                           filter->srcpad;
-//      caps = gst_pad_get_allowed_caps (otherpad);
-//
-//      gst_query_parse_caps (query, &filt);
-//
-//      /* We support *any* samplerate, indifferent from the samplerate
-//       * supported by the linked elements on both sides. */
-//      for (i = 0; i < gst_caps_get_size (caps); i++) {
-//        GstStructure *structure = gst_caps_get_structure (caps, i);
-//
-//        gst_structure_remove_field (structure, "rate");
-//      }
-//
-//      /* make sure we only return results that intersect our
-//       * padtemplate */
-//      tcaps = gst_pad_get_pad_template_caps (pad);
-//      if (tcaps) {
-//        temp = gst_caps_intersect (caps, tcaps);
-//        gst_caps_unref (caps);
-//        gst_caps_unref (tcaps);
-//        caps = temp;
-//      }
-//      /* filter against the query filter when needed */
-//      if (filt) {
-//        temp = gst_caps_intersect (caps, filt);
-//        gst_caps_unref (caps);
-//        caps = temp;
-//      }
       GST_DEBUG_OBJECT (filter, "Setting caps query result: %" GST_PTR_FORMAT, new_caps);
       gst_query_set_caps_result (query, new_caps);
       gst_caps_unref (new_caps);
