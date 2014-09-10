@@ -249,6 +249,7 @@ static void gst_kaldinnet2onlinedecoder_init(
   // will be set later
   filter->feature_info = NULL;
   filter->sample_rate = 0;
+  filter->decoding = false;
 
   // init properties from various Kaldi Opts
   GstElementClass * klass = GST_ELEMENT_GET_CLASS(filter);
@@ -603,6 +604,7 @@ static void gst_kaldinnet2onlinedecoder_loop(
   gst_pad_pause_task(filter->srcpad);
   delete filter->audio_source;
   filter->audio_source = new GstBufferSource();
+  filter->decoding = false;
 }
 
 /* GstElement vmethod implementations */
@@ -653,8 +655,8 @@ static gboolean gst_kaldinnet2onlinedecoder_sink_event(GstPad * pad,
 
   switch (GST_EVENT_TYPE(event)) {
     case GST_EVENT_SEGMENT: {
-
       GST_DEBUG_OBJECT(filter, "Starting decoding task");
+      filter->decoding = true;
       gst_pad_start_task(filter->srcpad,
                          (GstTaskFunction) gst_kaldinnet2onlinedecoder_loop,
                          filter, NULL);
@@ -670,7 +672,12 @@ static gboolean gst_kaldinnet2onlinedecoder_sink_event(GstPad * pad,
     case GST_EVENT_EOS: {
       /* end-of-stream, we should close down all stream leftovers here */
       GST_DEBUG_OBJECT(filter, "EOS received");
-      filter->audio_source->SetEnded(true);
+      if (filter->decoding) {
+        filter->audio_source->SetEnded(true);
+      } else {
+        GST_DEBUG_OBJECT(filter, "EOS received while not decoding, pushing EOS out");
+        gst_pad_push_event(filter->srcpad, gst_event_new_eos());
+      }
       ret = TRUE;
       break;
     }

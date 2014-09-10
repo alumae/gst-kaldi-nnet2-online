@@ -105,6 +105,7 @@ struct _Gstkaldinnet2onlinedecoder
   fst::Fst<fst::StdArc> *decode_fst;
   fst::SymbolTable *word_syms;
   int sample_rate;
+  gboolean decoding;
 };
 
 struct _Gstkaldinnet2onlinedecoderClass 
