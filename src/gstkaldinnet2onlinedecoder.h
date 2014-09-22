@@ -1,56 +1,29 @@
-/*
- * GStreamer
- * Copyright (C) 2005 Thomas Vander Stichele <thomas@apestaart.org>
- * Copyright (C) 2005 Ronald S. Bultje <rbultje@ronald.bitfreak.net>
- * Copyright (C) 2014 Tanel Alumae <<user@hostname.org>>
- * 
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
- * Alternatively, the contents of this file may be used under the
- * GNU Lesser General Public License Version 2.1 (the "LGPL"), in
- * which case the following provisions apply instead of the ones
- * mentioned above:
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
- */
+// gstkaldinnet2onlinedecoder.h
 
-#ifndef __GST_KALDINNET2ONLINEDECODER_H__
-#define __GST_KALDINNET2ONLINEDECODER_H__
+// Copyright 2014 Tanel Alumäe
 
+// See ../COPYING for clarification regarding multiple authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+// THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+// WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+// MERCHANTABLITY OR NON-INFRINGEMENT.
+// See the Apache 2 License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef KALDI_SRC_GSTKALDINNET2ONLINEDECODER_H_
+#define KALDI_SRC_GSTKALDINNET2ONLINEDECODER_H_
 
 #include <gst/gst.h>
 
-#include "simple-options-gst.h"
-#include "gst-audio-source.h"
+#include "./simple-options-gst.h"
+#include "./gst-audio-source.h"
 
 #include "online2/online-nnet2-decoding.h"
 #include "online2/onlinebin-util.h"
@@ -75,11 +48,10 @@ G_BEGIN_DECLS
 #define GST_IS_KALDINNET2ONLINEDECODER_CLASS(klass) \
   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_KALDINNET2ONLINEDECODER))
 
-typedef struct _Gstkaldinnet2onlinedecoder      Gstkaldinnet2onlinedecoder;
+typedef struct _Gstkaldinnet2onlinedecoder Gstkaldinnet2onlinedecoder;
 typedef struct _Gstkaldinnet2onlinedecoderClass Gstkaldinnet2onlinedecoderClass;
 
-struct _Gstkaldinnet2onlinedecoder
-{
+struct _Gstkaldinnet2onlinedecoder {
   GstElement element;
 
   GstPad *sinkpad, *srcpad;
@@ -108,15 +80,14 @@ struct _Gstkaldinnet2onlinedecoder
   gboolean decoding;
 };
 
-struct _Gstkaldinnet2onlinedecoderClass 
-{
+struct _Gstkaldinnet2onlinedecoderClass {
   GstElementClass parent_class;
   void (*partial_result)(GstElement *element, const gchar *result_str);
   void (*final_result)(GstElement *element, const gchar *result_str);
 };
 
-GType gst_kaldinnet2onlinedecoder_get_type (void);
+GType gst_kaldinnet2onlinedecoder_get_type(void);
 
 G_END_DECLS
 }
-#endif /* __GST_KALDINNET2ONLINEDECODER_H__ */
+#endif  // KALDI_SRC_GSTKALDINNET2ONLINEDECODER_H_

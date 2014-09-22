@@ -2,7 +2,7 @@
 
 // Copyright 2013  Tanel Alumae, Tallinn University of Technology
 
-// See ../../COPYING for clarification regarding multiple authors
+// See ../COPYING for clarification regarding multiple authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 
 #include <algorithm>
 
-#include "gst-audio-source.h"
+#include "./gst-audio-source.h"
 
 namespace kaldi {
 
@@ -65,7 +65,8 @@ void GstBufferSource::SetEnded(bool ended) {
 
 bool GstBufferSource::Read(Vector<BaseFloat> *data) {
   uint32 nsamples_req = data->Dim();  // (16bit) samples requested
-  int16 buf[data->Dim()];
+  uint32 kDim = data->Dim();
+  int16 buf[kDim];
   uint32 nbytes_transferred = 0;
 
   while ((nbytes_transferred  < nsamples_req * sizeof(SampleType))) {

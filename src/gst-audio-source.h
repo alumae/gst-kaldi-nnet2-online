@@ -17,8 +17,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_GST_PLUGIN_GST_AUDIO_SOURCE_H_
-#define KALDI_GST_PLUGIN_GST_AUDIO_SOURCE_H_
+#ifndef KALDI_SRC_GST_AUDIO_SOURCE_H_
+#define KALDI_SRC_GST_AUDIO_SOURCE_H_
 
 #include <matrix/kaldi-vector.h>
 #include <gst/gst.h>
@@ -55,4 +55,4 @@ class GstBufferSource {
 
 }  // namespace kaldi
 
-#endif  // KALDI_GST_PLUGIN_GST_AUDIO_SOURCE_H_
+#endif  // KALDI_SRC_GST_AUDIO_SOURCE_H_

@@ -44,8 +44,8 @@
 
 #include <gst/gst.h>
 
-#include "kaldimarshal.h"
-#include "gstkaldinnet2onlinedecoder.h"
+#include "./kaldimarshal.h"
+#include "./gstkaldinnet2onlinedecoder.h"
 
 #include "fstext/fstext-lib.h"
 
@@ -121,7 +121,7 @@ static GstFlowReturn gst_kaldinnet2onlinedecoder_chain(GstPad * pad,
 static GstStateChangeReturn gst_kaldinnet2onlinedecoder_change_state(
     GstElement *element, GstStateChange transition);
 
-static gboolean gst_kaldinnet2onlinedecoder_query (GstPad *pad, GstObject * parent, GstQuery * query);
+static gboolean gst_kaldinnet2onlinedecoder_query(GstPad *pad, GstObject * parent, GstQuery * query);
 
 static void gst_kaldinnet2onlinedecoder_finalize(GObject * object);
 
@@ -695,7 +695,6 @@ static GstFlowReturn gst_kaldinnet2onlinedecoder_chain(GstPad * pad,
                                                        GstObject * parent,
                                                        GstBuffer * buf) {
   Gstkaldinnet2onlinedecoder *filter = GST_KALDINNET2ONLINEDECODER(parent);
-
 
   if (G_UNLIKELY(!filter->audio_source))
     goto not_negotiated;
