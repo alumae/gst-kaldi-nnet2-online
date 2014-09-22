@@ -1,7 +1,14 @@
 WHAT IT IS
 ----------
 
-GStreamer plugin that wraps Kaldi's SingleUtteranceNnet2Decoder.
+GStreamer plugin that wraps Kaldi's SingleUtteranceNnet2Decoder. It uses iVector-adapted
+DNN acoustic models. The iVectors are adapted to the current audio stream automatically.
+
+The iVectors are reset after the decoding session (stream) ends.
+Currently, it's not possible to save the adapted iVectors and recall them later
+for a particular speaker, to make the adaptation persistent over multiple decoding
+sessions.
+
 
 HOW TO COMPILE IT
 -----------------
@@ -42,3 +49,6 @@ Command-line usage is demonstrated in `demo/`.
 
 Usage through GSTreamer's Python bindings is demonstrated in 
 https://github.com/alumae/kaldi-gstreamer-server (kaldigstserver/decoder2.py).
+
+
+
