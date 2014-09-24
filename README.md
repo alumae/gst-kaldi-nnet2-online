@@ -45,7 +45,8 @@ Test if GStreamer can access the plugin:
 
 Command-line usage is demonstrated in `demo/`.
 
-Usage through GSTreamer's Python bindings is demonstrated in the project
+Usage through GStreamer's Python bindings is demonstrated `demo/gui-demo.py`
+and in the project
 https://github.com/alumae/kaldi-gstreamer-server, in file kaldigstserver/decoder2.py.
 
 
