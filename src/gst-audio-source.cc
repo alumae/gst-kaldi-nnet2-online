@@ -56,8 +56,8 @@ void GstBufferSource::PushBuffer(GstBuffer *buf) {
 }
 
 void GstBufferSource::SetEnded(bool ended) {
-  ended_ = ended;
   g_mutex_lock(&lock_);
+  ended_ = ended;
   g_cond_signal(&data_cond_);
   g_mutex_unlock(&lock_);
 }
