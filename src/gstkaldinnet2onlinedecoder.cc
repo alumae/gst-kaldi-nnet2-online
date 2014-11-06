@@ -588,22 +588,26 @@ static void gst_kaldinnet2onlinedecoder_loop(
         last_traceback += traceback_period_secs;
       }
     }
-    GST_DEBUG_OBJECT(filter, "Getting lattice..");
-    CompactLattice clat;
-    bool end_of_utterance = true;
-    decoder.GetLattice(end_of_utterance, &clat);
-    GST_DEBUG_OBJECT(filter, "Lattice done");
-    double tot_like = 0.0;
-    int64 num_frames = 0;
+    if (num_seconds_decoded > 0.1) {
+      GST_DEBUG_OBJECT(filter, "Getting lattice..");
+      CompactLattice clat;
+      bool end_of_utterance = true;
+      decoder.GetLattice(end_of_utterance, &clat);
+      GST_DEBUG_OBJECT(filter, "Lattice done");
+      double tot_like = 0.0;
+      int64 num_frames = 0;
 
-    guint num_words = 0;
-    gst_kaldinnet2onlinedecoder_final_result(filter, clat, &num_frames,
-                                             &tot_like, &num_words);
-    if (num_words > 0) {
-      // Only update adaptation state if the utterance was not empty
-      // We might avoid updating the adaptation state if
-      // we felt the utterance had low confidence.
-      feature_pipeline.GetAdaptationState(&adaptation_state);
+      guint num_words = 0;
+      gst_kaldinnet2onlinedecoder_final_result(filter, clat, &num_frames,
+                                               &tot_like, &num_words);
+      if (num_words > 0) {
+        // Only update adaptation state if the utterance was not empty
+        // We might avoid updating the adaptation state if
+        // we felt the utterance had low confidence.
+        feature_pipeline.GetAdaptationState(&adaptation_state);
+      }
+    } else {
+      GST_DEBUG_OBJECT(filter, "Less than 0.1 seconds decoded, discarding");
     }
   }
 
