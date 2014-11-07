@@ -48,6 +48,7 @@
 #include "./gstkaldinnet2onlinedecoder.h"
 
 #include "fstext/fstext-lib.h"
+#include "lat/confidence.h"
 
 namespace kaldi {
 
@@ -604,7 +605,15 @@ static void gst_kaldinnet2onlinedecoder_loop(
         // Only update adaptation state if the utterance was not empty
         // We might avoid updating the adaptation state if
         // we felt the utterance had low confidence.
+       int32 num_paths;
+       std::vector<int32> best_sentence,second_best_sentence;
+        BaseFloat confidence = SentenceLevelConfidence(clat, &num_paths,
+                                                       &best_sentence,
+                                                       &second_best_sentence);
+       // FIXME: is 1.0 a good value?
+       if (confidence > 1.0) {
         feature_pipeline.GetAdaptationState(&adaptation_state);
+       }
       }
     } else {
       GST_DEBUG_OBJECT(filter, "Less than 0.1 seconds decoded, discarding");
