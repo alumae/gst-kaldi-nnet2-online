@@ -78,6 +78,7 @@ struct _Gstkaldinnet2onlinedecoder {
   fst::SymbolTable *word_syms;
   int sample_rate;
   gboolean decoding;
+  OnlineIvectorExtractorAdaptationState *adaptation_state;
 };
 
 struct _Gstkaldinnet2onlinedecoderClass {
