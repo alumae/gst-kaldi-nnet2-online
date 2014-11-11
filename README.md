@@ -4,10 +4,18 @@
 GStreamer plugin that wraps Kaldi's SingleUtteranceNnet2Decoder. It requires iVector-adapted
 DNN acoustic models. The iVectors are adapted to the current audio stream automatically.
 
-The iVectors are reset after the decoding session (stream) ends.
+~~The iVectors are reset after the decoding session (stream) ends.
 Currently, it's not possible to save the adaptation state and recall it later
 for a particular speaker, to make the adaptation persistent over multiple decoding
-sessions.
+sessions.~~
+
+Update: the plugin saves the adaptation state between silence-segmented utterances and between
+multiple decoding sessions of the same plugin instance. 
+That is, if you start decoding a new stream, the adaptation state of the
+previous stream is used (unless it's the first stream, in which case a global mean is used).
+Use the `adaptation-state` plugin property to get, and set the adaptation state. Use an empty string
+with the set method to reset the adaptation state to default. This functionality requires
+Kaldi revision 4582 or later.
 
 
 # HOW TO COMPILE IT
