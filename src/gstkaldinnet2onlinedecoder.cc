@@ -465,8 +465,12 @@ static void gst_kaldinnet2onlinedecoder_get_property(GObject * object,
       break;
     case PROP_ADAPTATION_STATE:
       string_stream.clear();
-      filter->adaptation_state->Write(string_stream, false);
-      g_value_set_string(value, string_stream.str().c_str());
+      if (filter->adaptation_state) {
+          filter->adaptation_state->Write(string_stream, false);
+          g_value_set_string(value, string_stream.str().c_str());
+      } else {
+          g_value_set_string(value, "");
+      }
       break;
     default:
       if (prop_id >= PROP_LAST) {
