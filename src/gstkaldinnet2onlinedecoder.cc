@@ -71,12 +71,14 @@ enum {
   PROP_DO_ENDPOINTING,
   PROP_ADAPTATION_STATE,
   PROP_INVERSE_SCALE,
+  PROP_LMWT_SCALE,
   PROP_LAST
 };
 
 #define DEFAULT_MODEL           "final.mdl"
 #define DEFAULT_FST             "HCLG.fst"
 #define DEFAULT_WORD_SYMS       "words.txt"
+#define DEFAULT_LMWT_SCALE	1.0
 
 /* the capabilities of the inputs and outputs.
  *
@@ -195,6 +197,17 @@ static void gst_kaldinnet2onlinedecoder_class_init(
           FALSE,
           (GParamFlags) G_PARAM_READWRITE));
 
+  g_object_class_install_property(
+      gobject_class,
+      PROP_LMWT_SCALE,
+      g_param_spec_float(
+          "lmwt-scale", "LM weight for scaling output lattice",
+          "LM scaling for the output lattice, usually in conjunction with inverse-scaling=true",
+          G_MINFLOAT,
+          G_MAXFLOAT,
+          DEFAULT_LMWT_SCALE,
+          (GParamFlags) G_PARAM_READWRITE));
+
   gst_kaldinnet2onlinedecoder_signals[PARTIAL_RESULT_SIGNAL] = g_signal_new(
       "partial-result", G_TYPE_FROM_CLASS(klass), G_SIGNAL_RUN_LAST,
       G_STRUCT_OFFSET(Gstkaldinnet2onlinedecoderClass, partial_result),
@@ -270,6 +283,7 @@ static void gst_kaldinnet2onlinedecoder_init(
   filter->feature_info = NULL;
   filter->sample_rate = 0;
   filter->decoding = false;
+  filter->lmwt_scale = DEFAULT_LMWT_SCALE;
   filter->inverse_scale = FALSE;
 
   // init properties from various Kaldi Opts
@@ -380,6 +394,9 @@ static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
     case PROP_INVERSE_SCALE:
       filter->inverse_scale = g_value_get_boolean(value);
       break;
+    case PROP_LMWT_SCALE:
+      filter->lmwt_scale = g_value_get_float(value);
+      break;
     case PROP_ADAPTATION_STATE:
       {
         if (G_VALUE_HOLDS_STRING(value)) {
@@ -480,6 +497,9 @@ static void gst_kaldinnet2onlinedecoder_get_property(GObject * object,
     case PROP_INVERSE_SCALE:
       g_value_set_boolean(value, filter->inverse_scale);
       break;
+    case PROP_LMWT_SCALE:
+      g_value_set_float(value, filter->lmwt_scale);
+      break;
     case PROP_ADAPTATION_STATE:
       string_stream.clear();
       if (filter->adaptation_state) {
@@ -543,6 +563,8 @@ static void gst_kaldinnet2onlinedecoder_final_result(
 	    decodable_opts.acoustic_scale;
     fst::ScaleLattice(fst::AcousticLatticeScale(inv_acoustic_scale), &clat);
   }
+
+  fst::ScaleLattice(fst::LatticeScale(filter->lmwt_scale, 1.0), &clat);
 
   CompactLatticeShortestPath(clat, &best_path_clat);
 
