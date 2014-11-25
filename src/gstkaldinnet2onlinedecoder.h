@@ -60,6 +60,8 @@ struct _Gstkaldinnet2onlinedecoder {
 
   gboolean silent;
   gboolean do_endpointing;
+  gboolean inverse_scale;
+  float lmwt_scale;
   GstBufferSource *audio_source;
 
   gchar* model_rspecifier;
