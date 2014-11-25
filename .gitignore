@@ -1,0 +1,4 @@
+src/.depend.mk
+*.o
+*.so
+src/kaldimarshal.*
