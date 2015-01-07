@@ -72,6 +72,7 @@ enum {
   PROP_ADAPTATION_STATE,
   PROP_INVERSE_SCALE,
   PROP_LMWT_SCALE,
+  PROP_CHUNK_LENGTH_IN_SECS,
   PROP_LAST
 };
 
@@ -79,6 +80,7 @@ enum {
 #define DEFAULT_FST             "HCLG.fst"
 #define DEFAULT_WORD_SYMS       "words.txt"
 #define DEFAULT_LMWT_SCALE	1.0
+#define DEFAULT_CHUNK_LENGTH_IN_SECS  0.05
 
 /* the capabilities of the inputs and outputs.
  *
@@ -208,6 +210,17 @@ static void gst_kaldinnet2onlinedecoder_class_init(
           DEFAULT_LMWT_SCALE,
           (GParamFlags) G_PARAM_READWRITE));
 
+  g_object_class_install_property(
+      gobject_class,
+      PROP_CHUNK_LENGTH_IN_SECS,
+      g_param_spec_float(
+          "chunk-length-in-secs", "Length of a audio chunk that is processed at a time",
+          "Smaller values decrease latency, bigger values (e.g. 0.2) improve speed if multithreaded BLAS/MKL is used",
+          0.05,
+          G_MAXFLOAT,
+          DEFAULT_CHUNK_LENGTH_IN_SECS,
+          (GParamFlags) G_PARAM_READWRITE));
+
   gst_kaldinnet2onlinedecoder_signals[PARTIAL_RESULT_SIGNAL] = g_signal_new(
       "partial-result", G_TYPE_FROM_CLASS(klass), G_SIGNAL_RUN_LAST,
       G_STRUCT_OFFSET(Gstkaldinnet2onlinedecoderClass, partial_result),
@@ -285,6 +298,7 @@ static void gst_kaldinnet2onlinedecoder_init(
   filter->decoding = false;
   filter->lmwt_scale = DEFAULT_LMWT_SCALE;
   filter->inverse_scale = FALSE;
+  filter->chunk_length_in_secs = DEFAULT_CHUNK_LENGTH_IN_SECS;
 
   // init properties from various Kaldi Opts
   GstElementClass * klass = GST_ELEMENT_GET_CLASS(filter);
@@ -397,6 +411,9 @@ static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
     case PROP_LMWT_SCALE:
       filter->lmwt_scale = g_value_get_float(value);
       break;
+    case PROP_CHUNK_LENGTH_IN_SECS:
+      filter->chunk_length_in_secs = g_value_get_float(value);
+      break;
     case PROP_ADAPTATION_STATE:
       {
         if (G_VALUE_HOLDS_STRING(value)) {
@@ -499,6 +516,9 @@ static void gst_kaldinnet2onlinedecoder_get_property(GObject * object,
       break;
     case PROP_LMWT_SCALE:
       g_value_set_float(value, filter->lmwt_scale);
+      break;
+    case PROP_CHUNK_LENGTH_IN_SECS:
+      g_value_set_float(value, filter->chunk_length_in_secs);
       break;
     case PROP_ADAPTATION_STATE:
       string_stream.clear();
@@ -639,10 +659,9 @@ static void gst_kaldinnet2onlinedecoder_loop(
     Gstkaldinnet2onlinedecoder * filter) {
 
   GST_DEBUG_OBJECT(filter, "Starting decoding loop..");
-  BaseFloat chunk_length_secs = 0.05;
   BaseFloat traceback_period_secs = 1.0;
 
-  int32 chunk_length = int32(filter->sample_rate * chunk_length_secs);
+  int32 chunk_length = int32(filter->sample_rate * filter->chunk_length_in_secs);
 
   bool more_data = true;
   while (more_data) {
@@ -675,7 +694,7 @@ static void gst_kaldinnet2onlinedecoder_loop(
         GST_DEBUG_OBJECT(filter, "Endpoint detected!");
         break;
       }
-      num_seconds_decoded += chunk_length_secs;
+      num_seconds_decoded += filter->chunk_length_in_secs;
       if (num_seconds_decoded - last_traceback > traceback_period_secs) {
         Lattice lat;
         decoder.GetBestPath(false, &lat);
@@ -703,13 +722,6 @@ static void gst_kaldinnet2onlinedecoder_loop(
       GST_DEBUG_OBJECT(filter, "Less than 0.1 seconds decoded, discarding");
     }
   }
-
-  // TODO: write adaptation state to string and push it out
-  // bool binary = false;
-  // Output ko("adaptation_state.txt", binary);
-  // adaptation_state.Write(ko.Stream(), binary);
-  // ko.Close();
-
 
   GST_DEBUG_OBJECT(filter, "Finished decoding loop");
   GST_DEBUG_OBJECT(filter, "Pushing EOS event");
@@ -933,6 +945,10 @@ static void gst_kaldinnet2onlinedecoder_finalize(GObject * object) {
   if (filter->word_syms) {
     delete filter->word_syms;
   }
+  if (filter->adaptation_state) {
+    delete filter->adaptation_state;
+  }
+
   G_OBJECT_CLASS(parent_class)->finalize(object);
 }
 

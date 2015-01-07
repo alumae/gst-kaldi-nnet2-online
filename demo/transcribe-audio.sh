@@ -28,4 +28,5 @@ kaldinnet2onlinedecoder \
   lattice-beam=5.0 \
   do-endpointing=true \
   endpoint-silence-phones="1:2:3:4:5:6:7:8:9:10" \
+  chunk-length-in-secs=0.2 \
 ! filesink location=/dev/stdout buffer-mode=2
