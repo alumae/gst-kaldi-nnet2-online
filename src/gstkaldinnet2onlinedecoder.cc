@@ -704,6 +704,7 @@ static void gst_kaldinnet2onlinedecoder_loop(
     }
     if (num_seconds_decoded > 0.1) {
       GST_DEBUG_OBJECT(filter, "Getting lattice..");
+      decoder.FinalizeDecoding();
       CompactLattice clat;
       bool end_of_utterance = true;
       decoder.GetLattice(end_of_utterance, &clat);
