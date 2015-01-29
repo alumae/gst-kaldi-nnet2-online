@@ -4,12 +4,18 @@
 GStreamer plugin that wraps Kaldi's SingleUtteranceNnet2Decoder. It requires iVector-adapted
 DNN acoustic models. The iVectors are adapted to the current audio stream automatically.
 
-~~The iVectors are reset after the decoding session (stream) ends.
-Currently, it's not possible to save the adaptation state and recall it later
-for a particular speaker, to make the adaptation persistent over multiple decoding
-sessions.~~
 
-Update: the plugin saves the adaptation state between silence-segmented utterances and between
+# CHANGELOG
+
+2015-01-09: Added language model rescoring functionality. In order to use it,
+you have to specify two properties: `lm-fst` and `big-lm-const-arpa`. The `lm-fst`
+property gives the location of the *original* LM (the one that was used fpr 
+compiling the HCLG.fst used during decodong). The `big-lm-const-arpa` property
+gives the location of the big LM used that is used to rescore the final lattices.
+The big LM must be in the 'ConstArpaLm' format, use the Kaldi's 
+`utils/build_const_arpa_lm.sh` script to produce it from the ARPA format.
+
+2014-11-11: the plugin saves the adaptation state between silence-segmented utterances and between
 multiple decoding sessions of the same plugin instance. 
 That is, if you start decoding a new stream, the adaptation state of the
 previous stream is used (unless it's the first stream, in which case a global mean is used).
