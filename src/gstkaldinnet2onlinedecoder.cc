@@ -1100,6 +1100,18 @@ static void gst_kaldinnet2onlinedecoder_finalize(GObject * object) {
   if (filter->adaptation_state) {
     delete filter->adaptation_state;
   }
+  g_free(filter->lm_fst_name);
+  g_free(filter->big_lm_const_arpa_name);
+  if (filter->lm_fst) {
+    delete filter->lm_fst;
+  }
+  if (filter->big_lm_const_arpa) {
+    delete filter->big_lm_const_arpa;
+  }
+  if (filter->lm_compose_cache) {
+    delete filter->lm_compose_cache;
+  }
+
 
   G_OBJECT_CLASS(parent_class)->finalize(object);
 }
