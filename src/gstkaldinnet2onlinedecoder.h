@@ -31,6 +31,7 @@
 #include "online2/online-endpoint.h"
 #include "fstext/fstext-lib.h"
 #include "lat/lattice-functions.h"
+#include "lm/const-arpa-lm.h"
 
 namespace kaldi {
 
@@ -82,6 +83,13 @@ struct _Gstkaldinnet2onlinedecoder {
   gboolean decoding;
   float chunk_length_in_secs;
   OnlineIvectorExtractorAdaptationState *adaptation_state;
+
+  // The following are needed for optional LM rescoring with a "big" LM
+  gchar* lm_fst_name;
+  gchar* big_lm_const_arpa_name;
+  fst::MapFst<fst::StdArc, LatticeArc, fst::StdToLatticeMapper<BaseFloat> > *lm_fst;
+  fst::TableComposeCache<fst::Fst<LatticeArc> > *lm_compose_cache;
+  ConstArpaLm *big_lm_const_arpa;
 };
 
 struct _Gstkaldinnet2onlinedecoderClass {
