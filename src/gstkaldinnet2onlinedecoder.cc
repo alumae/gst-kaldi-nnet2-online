@@ -306,7 +306,11 @@ static void gst_kaldinnet2onlinedecoder_init(
 
   filter->endpoint_config = new OnlineEndpointConfig();
   filter->feature_config = new OnlineNnet2FeaturePipelineConfig();
+#ifdef THREADED_DECODER
+  filter->nnet2_decoding_config = new OnlineNnet2DecodingThreadedConfig();
+#else
   filter->nnet2_decoding_config = new OnlineNnet2DecodingConfig();
+#endif
 
   filter->endpoint_config->Register(filter->simple_options);
   filter->feature_config->Register(filter->simple_options);
@@ -616,8 +620,13 @@ static void gst_kaldinnet2onlinedecoder_final_result(
   CompactLattice best_path_clat;
 
   if (filter->inverse_scale) {
+#ifdef THREADED_DECODER
+    BaseFloat inv_acoustic_scale = 1.0 / filter->
+        nnet2_decoding_config->acoustic_scale;
+#else
     BaseFloat inv_acoustic_scale = 1.0 / filter->nnet2_decoding_config->
 	    decodable_opts.acoustic_scale;
+#endif
     fst::ScaleLattice(fst::AcousticLatticeScale(inv_acoustic_scale), &clat);
   }
 
@@ -759,13 +768,21 @@ static void gst_kaldinnet2onlinedecoder_loop(
   bool more_data = true;
   while (more_data) {
 
+
+#ifdef THREADED_DECODER
+    SingleUtteranceNnet2DecoderThreaded decoder(*(filter->nnet2_decoding_config),
+                                        *(filter->trans_model), *(filter->nnet),
+                                        *(filter->decode_fst),
+                                        *(filter->feature_info),
+                                        *(filter->adaptation_state));
+#else
     OnlineNnet2FeaturePipeline feature_pipeline(*(filter->feature_info));
     feature_pipeline.SetAdaptationState(*(filter->adaptation_state));
-
     SingleUtteranceNnet2Decoder decoder(*(filter->nnet2_decoding_config),
                                         *(filter->trans_model), *(filter->nnet),
                                         *(filter->decode_fst),
                                         &feature_pipeline);
+#endif
 
     Vector<BaseFloat> wave_part = Vector<BaseFloat>(chunk_length);
     GST_DEBUG_OBJECT(filter, "Reading audio in %d sample chunks...",
@@ -774,33 +791,57 @@ static void gst_kaldinnet2onlinedecoder_loop(
     BaseFloat num_seconds_decoded = 0.0;
     while (true) {
       more_data = filter->audio_source->Read(&wave_part);
+#ifdef THREADED_DECODER
+      decoder.AcceptWaveform(filter->sample_rate, wave_part);
+#else
       feature_pipeline.AcceptWaveform(filter->sample_rate, wave_part);
+#endif
       if (!more_data) {
+#ifdef THREADED_DECODER
+        decoder.InputFinished();
+#else
         feature_pipeline.InputFinished();
+#endif
       }
+#ifndef THREADED_DECODER // the threaded decoder just starts when it gets data
       decoder.AdvanceDecoding();
+#endif
       if (!more_data) {
         break;
       }
       if (filter->do_endpointing
           && decoder.EndpointDetected(*(filter->endpoint_config))) {
+#ifdef THREADED_DECODER // must stop it (the non-threaded is already idle)
+        decoder.TerminateDecoding();
+#endif
         GST_DEBUG_OBJECT(filter, "Endpoint detected!");
         break;
       }
       num_seconds_decoded += filter->chunk_length_in_secs;
       if (num_seconds_decoded - last_traceback > traceback_period_secs) {
         Lattice lat;
+#ifdef THREADED_DECODER
+        decoder.GetBestPath(false, &lat, NULL);
+#else
         decoder.GetBestPath(false, &lat);
+#endif
         gst_kaldinnet2onlinedecoder_partial_result(filter, lat);
         last_traceback += traceback_period_secs;
       }
     }
     if (num_seconds_decoded > 0.1) {
+#ifdef THREADED_DECODER // joining the decoding thread
+      decoder.Wait();
+#endif
       GST_DEBUG_OBJECT(filter, "Getting lattice..");
       decoder.FinalizeDecoding();
       CompactLattice clat;
       bool end_of_utterance = true;
+#ifdef THREADED_DECODER
+      decoder.GetLattice(end_of_utterance, &clat, NULL);
+#else
       decoder.GetLattice(end_of_utterance, &clat);
+#endif
       GST_DEBUG_OBJECT(filter, "Lattice done");
       if ((filter->lm_fst != NULL) && (filter->big_lm_const_arpa != NULL)) {
         GST_DEBUG_OBJECT(filter, "Rescoring lattice with a big LM");
@@ -818,7 +859,11 @@ static void gst_kaldinnet2onlinedecoder_loop(
                                                &tot_like, &num_words);
       if (num_words > 0) {
         // Only update adaptation state if the utterance was not empty
+#ifdef THREADED_DECODER
+        decoder.GetAdaptationState(filter->adaptation_state);
+#else
         feature_pipeline.GetAdaptationState(filter->adaptation_state);
+#endif
       }
     } else {
       GST_DEBUG_OBJECT(filter, "Less than 0.1 seconds decoded, discarding");

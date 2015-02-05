@@ -25,7 +25,12 @@
 #include "./simple-options-gst.h"
 #include "./gst-audio-source.h"
 
+#ifdef THREADED_DECODER
+#include "online2/online-nnet2-decoding-threaded.h"
+#else
 #include "online2/online-nnet2-decoding.h"
+#endif
+
 #include "online2/onlinebin-util.h"
 #include "online2/online-timing.h"
 #include "online2/online-endpoint.h"
@@ -72,7 +77,11 @@ struct _Gstkaldinnet2onlinedecoder {
   SimpleOptionsGst *simple_options;
   OnlineEndpointConfig *endpoint_config;
   OnlineNnet2FeaturePipelineConfig *feature_config;
+#ifdef THREADED_DECODER
+  OnlineNnet2DecodingThreadedConfig *nnet2_decoding_config;
+#else
   OnlineNnet2DecodingConfig *nnet2_decoding_config;
+#endif
 
   OnlineNnet2FeaturePipelineInfo *feature_info;
   TransitionModel *trans_model;
