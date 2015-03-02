@@ -810,6 +810,7 @@ static void gst_kaldinnet2onlinedecoder_loop(
         break;
       }
       if (filter->do_endpointing
+          && (decoder.NumFramesDecoded() > 0)
           && decoder.EndpointDetected(*(filter->endpoint_config))) {
 #ifdef THREADED_DECODER // must stop it (the non-threaded is already idle)
         decoder.TerminateDecoding();
