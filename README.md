@@ -7,6 +7,14 @@ DNN acoustic models. The iVectors are adapted to the current audio stream automa
 
 # CHANGELOG
 
+2015-03-01: one can now optionally use the threaded online decoder. Citing 
+Daniel Povey who developed the code in Kaldi: "This should make it possible to 
+decode in real-time with larger models and graphs than before, because 
+the decoding and the nnet evaluation are in separate threads and can be done in parallel."
+Use `make CPPFLAGS=-DTHREADED_DECODER` to compile it. Note that the endpointing
+and partial results might not work as expected with the threaded decoder, 
+working on the fix.
+
 2015-01-09: Added language model rescoring functionality. In order to use it,
 you have to specify two properties: `lm-fst` and `big-lm-const-arpa`. The `lm-fst`
 property gives the location of the *original* LM (the one that was used fpr 
