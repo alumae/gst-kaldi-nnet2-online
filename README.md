@@ -7,6 +7,10 @@ DNN acoustic models. The iVectors are adapted to the current audio stream automa
 
 # CHANGELOG
 
+2015-03-05: Threaded decoder can now be selected at configuration time, using the
+`use-threaded-decoder` property. *NB:* this property should be set before other 
+properties. Endpointing and partial results might still not work as expected with the threaded decoder.
+
 2015-03-01: one can now optionally use the threaded online decoder. Citing 
 Daniel Povey who developed the code in Kaldi: "This should make it possible to 
 decode in real-time with larger models and graphs than before, because 
