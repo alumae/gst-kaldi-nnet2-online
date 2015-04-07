@@ -39,13 +39,16 @@ EXTRA_LDLIBS+=-lmkl_p4n -lmkl_def
 endif
 
 # Library so name and rpath
-ifneq (,$(findstring clang++, $(CXX)))
+
+CXX_VERSION=$(shell $(CXX) --version 2>/dev/null)
+ifneq (,$(findstring clang, $(CXX_VERSION)))
     # clang++ linker
     EXTRA_LDLIBS +=  -Wl,-install_name,$(LIBFILE) -Wl,-rpath,$(KALDILIBDIR)
 else
     # g++ linker
     EXTRA_LDLIBS +=  -Wl,-soname=$(LIBFILE) -Wl,--no-as-needed -Wl,-rpath=$(KALDILIBDIR) -lrt -pthread
 endif
+
 
 $(LIBFILE): $(OBJFILES)
 	$(CXX) -shared -DPIC -o $(LIBFILE) -L$(KALDILIBDIR) $(EXTRA_LDLIBS) $(LDLIBS) $(LDFLAGS) \
