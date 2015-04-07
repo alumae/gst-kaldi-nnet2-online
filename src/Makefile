@@ -12,7 +12,6 @@ ifneq ($(KALDI_FLAVOR), dynamic)
 $(error Kaldi must compiled with dynamic libraries support. Run configure with --shared flag. )
 endif
 
-
 CXXFLAGS+=-I$(KALDI_ROOT)/src
 
 EXTRA_CXXFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
@@ -34,19 +33,18 @@ BINFILES= $(LIBFILE)
 
 all: $(LIBFILE)
 
-
 # MKL libs required when linked via shared library
 ifdef MKLROOT
 EXTRA_LDLIBS+=-lmkl_p4n -lmkl_def
 endif
 
 # Library so name and rpath
-ifeq ($(CXX),clang++)
-EXTRA_LDLIBS +=  -Wl,-install_name,$(LIBFILE) -Wl,-rpath,$(KALDILIBDIR)
-endif
-
-ifeq ($(CXX),g++)
-EXTRA_LDLIBS +=  -Wl,-soname=$(LIBFILE) -Wl,--no-as-needed -Wl,-rpath=$(KALDILIBDIR) -lrt -pthread
+ifneq (,$(findstring clang++, $(CXX)))
+    # clang++ linker
+    EXTRA_LDLIBS +=  -Wl,-install_name,$(LIBFILE) -Wl,-rpath,$(KALDILIBDIR)
+else
+    # g++ linker
+    EXTRA_LDLIBS +=  -Wl,-soname=$(LIBFILE) -Wl,--no-as-needed -Wl,-rpath=$(KALDILIBDIR) -lrt -pthread
 endif
 
 $(LIBFILE): $(OBJFILES)
