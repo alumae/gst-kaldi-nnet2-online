@@ -75,7 +75,7 @@ First, this prints a lot of warnings like:
     (gst-inspect-1.0:10810): GLib-GObject-WARNING **: Attempt to add property Gstkaldinnet2onlinedecoder::endpoint-rule1-min-trailing-silence after class was initialised
 
 This is because the properties of the plugin are initialized dynamically from Kaldi components
-and teh Kaldi components are created after plugin initialization. It doesn't seem
+and the Kaldi components are created after plugin initialization. It doesn't seem
 to harm any functinality.
 
 The second part of the `gst-inspect-1.0` output should list all plugin properties with their default values:
