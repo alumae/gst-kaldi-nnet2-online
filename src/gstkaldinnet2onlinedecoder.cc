@@ -396,8 +396,8 @@ static void gst_kaldinnet2onlinedecoder_init(
             PROP_LAST + i,
             g_param_spec_float(name.c_str(), option_info.doc.c_str(),
                                option_info.doc.c_str(),
-                               G_MINFLOAT,
-                               G_MAXFLOAT, tmp_float,
+                               -std::numeric_limits<float>::infinity(),
+                               std::numeric_limits<float>::infinity(), tmp_float,
                                (GParamFlags) G_PARAM_READWRITE));
         break;
       case SimpleOptions::kDouble:
@@ -407,8 +407,8 @@ static void gst_kaldinnet2onlinedecoder_init(
             PROP_LAST + i,
             g_param_spec_double(name.c_str(), option_info.doc.c_str(),
                                 option_info.doc.c_str(),
-                                G_MINDOUBLE,
-                                G_MAXDOUBLE, tmp_double,
+                                -std::numeric_limits<double>::infinity(),
+                                -std::numeric_limits<double>::infinity(), tmp_double,
                                 (GParamFlags) G_PARAM_READWRITE));
         break;
       case SimpleOptions::kString:
