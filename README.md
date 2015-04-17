@@ -66,6 +66,52 @@ Test if GStreamer can access the plugin:
 
     GST_PLUGIN_PATH=. gst-inspect-1.0 kaldinnet2onlinedecoder
 
+First, this prints a lot of warnings like:
+
+    (gst-inspect-1.0:10810): GLib-GObject-WARNING **: Attempt to add property Gstkaldinnet2onlinedecoder::endpoint-silence-phones after class was initialised
+
+    (gst-inspect-1.0:10810): GLib-GObject-WARNING **: Attempt to add property Gstkaldinnet2onlinedecoder::endpoint-rule1-must-contain-nonsilence after class was initialised
+
+    (gst-inspect-1.0:10810): GLib-GObject-WARNING **: Attempt to add property Gstkaldinnet2onlinedecoder::endpoint-rule1-min-trailing-silence after class was initialised
+
+This is because the properties of the plugin are initialized dynamically from Kaldi components
+and teh Kaldi components are created after plugin initialization. It doesn't seem
+to harm any functinality.
+
+The second part of the `gst-inspect-1.0` output should list all plugin properties with their default values:
+
+    Factory Details:
+      Rank                     none (0)
+      Long-name                KaldiNNet2OnlineDecoder
+      Klass                    Speech/Audio
+      Description              Convert speech to text
+    [...]
+      name                : The name of the object
+                            flags: readable, writable
+                            String. Default: "kaldinnet2onlinedecoder0"
+      parent              : The parent of the object
+                            flags: readable, writable
+                            Object of type "GstObject"
+      silent              : Silence the decoder
+                            flags: readable, writable
+                            Boolean. Default: false
+      model               : Filename of the acoustic model
+                            flags: readable, writable
+                            String. Default: "final.mdl"
+    [...]
+      max-nnet-batch-size : Maximum batch size we use in neural-network decodable object, in cases where we are not constrained by currently available frames (this will rarely make a difference)
+                            flags: readable, writable
+                            Integer. Range: -2147483648 - 2147483647 Default: 256 
+
+    Element Signals:
+      "partial-result" :  void user_function (GstElement* object,
+                                              gchararray arg0,
+                                              gpointer user_data);
+      "final-result" :  void user_function (GstElement* object,
+                                            gchararray arg0,
+                                            gpointer user_data);
+
+
 
 # HOW TO USE IT
 
