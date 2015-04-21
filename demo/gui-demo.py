@@ -14,6 +14,7 @@ gi.require_version('Gst', '1.0')
 from gi.repository import GObject, Gst, Gtk, Gdk
 GObject.threads_init()
 Gdk.threads_init()
+
 Gst.init(None)
 
 class DemoApp(object):
@@ -66,10 +67,12 @@ class DemoApp(object):
           self.asr.set_property("mfcc-config", "conf/mfcc.conf")
           self.asr.set_property("ivector-extraction-config", "conf/ivector_extractor.fixed.conf")
           self.asr.set_property("max-active", 7000)
-          self.asr.set_property("beam", 11.0)
+          self.asr.set_property("beam", 10.0)
           self.asr.set_property("lattice-beam", 6.0)
           self.asr.set_property("do-endpointing", True)
           self.asr.set_property("endpoint-silence-phones", "1:2:3:4:5:6:7:8:9:10")
+          self.asr.set_property("use-threaded-decoder", False)
+          self.asr.set_property("chunk-length-in-secs", 0.2)
         else:
           print >> sys.stderr, "Couldn't create the kaldinnet2onlinedecoder element. "
           if os.environ.has_key("GST_PLUGIN_PATH"):
@@ -134,4 +137,7 @@ class DemoApp(object):
 
 if __name__ == '__main__':
   app = DemoApp()
+  Gdk.threads_enter()
   Gtk.main()
+  Gdk.threads_leave()
+
