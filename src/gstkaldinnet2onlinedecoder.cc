@@ -516,7 +516,7 @@ static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
           switch (option_type) {
             case SimpleOptions::kBool:
               filter->simple_options->SetOption(name,
-                                                g_value_get_boolean(value));
+                                                (bool)g_value_get_boolean(value));
               break;
             case SimpleOptions::kInt32:
               filter->simple_options->SetOption(name, g_value_get_int(value));
