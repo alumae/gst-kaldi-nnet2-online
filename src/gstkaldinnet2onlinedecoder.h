@@ -83,6 +83,7 @@ struct _Gstkaldinnet2onlinedecoder {
   fst::Fst<fst::StdArc> *decode_fst;
   fst::SymbolTable *word_syms;
   int sample_rate;
+  int num_transcriptions;
   gboolean decoding;
   float chunk_length_in_secs;
   bool use_threaded_decoder;
