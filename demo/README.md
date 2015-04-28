@@ -32,7 +32,9 @@ After the warnings, you should get something like:
     huh i hello this is hello dimitri listen i i can't hear too well do you support you could turn the music down just a little
     ha ha that's much better yet not yet
     fine i can hear you now dimitri
-
+    [...]
+    
+    
 GUI demo
 --------
 
@@ -40,3 +42,8 @@ Run:
 
     GST_PLUGIN_PATH=../src ./gui-demo.py
     
+Note that the GUI demo runs very slowlly when using the threaded decoder.
+(that's why we don't use it in the GUI demo).
+This probably has something to do with Python, GIL, etc. I have no idea no
+to fix it.
+
