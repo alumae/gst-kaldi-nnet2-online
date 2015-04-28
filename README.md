@@ -30,7 +30,7 @@ working on the fix.
 2015-01-09: Added language model rescoring functionality. In order to use it,
 you have to specify two properties: `lm-fst` and `big-lm-const-arpa`. The `lm-fst`
 property gives the location of the *original* LM (the one that was used fpr 
-compiling the HCLG.fst used during decodong). The `big-lm-const-arpa` property
+compiling the HCLG.fst used during decoding). The `big-lm-const-arpa` property
 gives the location of the big LM used that is used to rescore the final lattices.
 The big LM must be in the 'ConstArpaLm' format, use the Kaldi's 
 `utils/build_const_arpa_lm.sh` script to produce it from the ARPA format.
