@@ -838,7 +838,7 @@ static void gst_kaldinnet2onlinedecoder_threaded_decode_segment(Gstkaldinnet2onl
     }
     while (true) {
       more_data = filter->audio_source->Read(&wave_part);
-      GST_DEBUG_OBJECT(filter, "Submitting wave of size: %d and energy %f", wave_part.Dim(), wave_part.Norm(2.0)/ wave_part.Dim());
+      GST_DEBUG_OBJECT(filter, "Submitting wave of size: %d", wave_part.Dim());
       decoder.AcceptWaveform(filter->sample_rate, wave_part);
       if (!more_data) {
         decoder.InputFinished();
