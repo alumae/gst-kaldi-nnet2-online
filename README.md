@@ -7,6 +7,13 @@ DNN acoustic models. The iVectors are adapted to the current audio stream automa
 
 # CHANGELOG
 
+2015-04-28: Endpointing and interim recognition results now work correctly
+when using the threaded decoder. Note that endpointing does not work exactly
+the same as with the unthreaded decoder, and there might be some differences
+between individual decoder runs, but for all practical purposes it should be OK.
+Also, introduced a new property `traceback-period-in-secs`
+that specifies how often intermediate results are sent to the client (default is 0.5).
+
 2015-03-05: Threaded decoder can now be selected at configuration time, using the
 `use-threaded-decoder` property. *NB:* this property should be set before other 
 properties. Endpointing and partial results might still not work as expected with the threaded decoder.
