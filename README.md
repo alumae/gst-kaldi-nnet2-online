@@ -13,6 +13,7 @@ the same as with the unthreaded decoder, and there might be some differences
 between individual decoder runs, but for all practical purposes it should be OK.
 Also, introduced a new property `traceback-period-in-secs`
 that specifies how often intermediate results are sent to the client (default is 0.5).
+*NB:* this update requires Kaldi revision 5036 or later.
 
 2015-03-05: Threaded decoder can now be selected at configuration time, using the
 `use-threaded-decoder` property. *NB:* this property should be set before other 
