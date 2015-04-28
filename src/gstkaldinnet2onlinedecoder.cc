@@ -51,6 +51,10 @@
 #include "lat/confidence.h"
 #include <fst/script/project.h>
 
+#include <fstream>
+#include <iostream>
+
+
 namespace kaldi {
 
 GST_DEBUG_CATEGORY_STATIC(gst_kaldinnet2onlinedecoder_debug);
@@ -74,6 +78,7 @@ enum {
   PROP_INVERSE_SCALE,
   PROP_LMWT_SCALE,
   PROP_CHUNK_LENGTH_IN_SECS,
+  PROP_TRACEBACK_PERIOD_IN_SECS,
   PROP_LM_FST,
   PROP_BIG_LM_CONST_ARPA,
   PROP_USE_THREADED_DECODER,
@@ -85,6 +90,7 @@ enum {
 #define DEFAULT_WORD_SYMS       "words.txt"
 #define DEFAULT_LMWT_SCALE	1.0
 #define DEFAULT_CHUNK_LENGTH_IN_SECS  0.05
+#define DEFAULT_TRACEBACK_PERIOD_IN_SECS  0.5
 #define DEAFULT_USE_THREADED_DECODER false
 
 /* the capabilities of the inputs and outputs.
@@ -224,6 +230,17 @@ static void gst_kaldinnet2onlinedecoder_class_init(
           0.05,
           G_MAXFLOAT,
           DEFAULT_CHUNK_LENGTH_IN_SECS,
+          (GParamFlags) G_PARAM_READWRITE));
+
+  g_object_class_install_property(
+      gobject_class,
+      PROP_TRACEBACK_PERIOD_IN_SECS,
+      g_param_spec_float(
+          "traceback-period-in-secs", "Time period after which new interim recognition result is sent",
+          "Time period after which new interim recognition result is sent",
+          0.05,
+          G_MAXFLOAT,
+          DEFAULT_TRACEBACK_PERIOD_IN_SECS,
           (GParamFlags) G_PARAM_READWRITE));
 
   g_object_class_install_property(
@@ -462,6 +479,9 @@ static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
     case PROP_CHUNK_LENGTH_IN_SECS:
       filter->chunk_length_in_secs = g_value_get_float(value);
       break;
+    case PROP_TRACEBACK_PERIOD_IN_SECS:
+      filter->traceback_period_in_secs = g_value_get_float(value);
+      break;
     case PROP_LM_FST:
       g_free(filter->lm_fst_name);
       filter->lm_fst_name = g_value_dup_string(value);
@@ -582,6 +602,9 @@ static void gst_kaldinnet2onlinedecoder_get_property(GObject * object,
       break;
     case PROP_CHUNK_LENGTH_IN_SECS:
       g_value_set_float(value, filter->chunk_length_in_secs);
+      break;
+    case PROP_TRACEBACK_PERIOD_IN_SECS:
+      g_value_set_float(value, filter->traceback_period_in_secs);
       break;
     case PROP_LM_FST:
       g_value_set_string(value, filter->lm_fst_name);
@@ -790,11 +813,11 @@ static bool gst_kaldinnet2onlinedecoder_rescore_big_lm(
   return true;
 }
 
-
 static void gst_kaldinnet2onlinedecoder_threaded_decode_segment(Gstkaldinnet2onlinedecoder * filter,
                                                       bool &more_data,
                                                       int32 chunk_length,
-                                                      BaseFloat traceback_period_secs) {
+                                                      BaseFloat traceback_period_secs,
+                                                      Vector<BaseFloat> *remaining_wave_part) {
     SingleUtteranceNnet2DecoderThreaded decoder(*(filter->nnet2_decoding_threaded_config),
                                         *(filter->trans_model), *(filter->nnet),
                                         *(filter->decode_fst),
@@ -806,16 +829,39 @@ static void gst_kaldinnet2onlinedecoder_threaded_decode_segment(Gstkaldinnet2onl
                      wave_part.Dim());
     BaseFloat last_traceback = 0.0;
     BaseFloat num_seconds_decoded = 0.0;
+    if (remaining_wave_part->Dim() > 0) {
+      GST_DEBUG_OBJECT(filter, "Submitting remaining wave of size %d", remaining_wave_part->Dim());
+      decoder.AcceptWaveform(filter->sample_rate, *remaining_wave_part);
+      while (decoder.NumFramesReceivedApprox() - decoder.NumFramesDecoded() > 100) {
+        Sleep(0.1);
+      }
+    }
     while (true) {
       more_data = filter->audio_source->Read(&wave_part);
+      GST_DEBUG_OBJECT(filter, "Submitting wave of size: %d and energy %f", wave_part.Dim(), wave_part.Norm(2.0)/ wave_part.Dim());
       decoder.AcceptWaveform(filter->sample_rate, wave_part);
       if (!more_data) {
         decoder.InputFinished();
-      }
-      if (!more_data) {
         break;
       }
+
       if (filter->do_endpointing) {
+        GST_DEBUG_OBJECT(filter, "Before the sleep check: Frames received: ~ %d, frames decoded: %d, pieces pending: %d",
+                         decoder.NumFramesReceivedApprox(),
+                         decoder.NumFramesDecoded(),
+                         decoder.NumWaveformPiecesPending());
+
+        // Wait until there are less than one second of frames left to decode
+        // Depends of the frame shift, but one second is also selected arbitrarily
+        while (decoder.NumFramesReceivedApprox() - decoder.NumFramesDecoded() > 100) {
+          Sleep(0.1);
+        }
+
+        GST_DEBUG_OBJECT(filter, "After the sleep check: Frames received: ~ %d, frames decoded: %d, pieces pending: %d",
+                         decoder.NumFramesReceivedApprox(),
+                         decoder.NumFramesDecoded(),
+                         decoder.NumWaveformPiecesPending());
+
         if ((decoder.NumFramesDecoded() > 0)
             && decoder.EndpointDetected(*(filter->endpoint_config))) {
           decoder.TerminateDecoding();
@@ -832,8 +878,12 @@ static void gst_kaldinnet2onlinedecoder_threaded_decode_segment(Gstkaldinnet2onl
         last_traceback += traceback_period_secs;
       }
     }
+
+    decoder.Wait();
+    decoder.GetRemainingWaveform(remaining_wave_part);
+    GST_DEBUG_OBJECT(filter, "Remaining waveform size: %d", remaining_wave_part->Dim());
+
     if (num_seconds_decoded > 0.1) {
-      decoder.Wait();
       GST_DEBUG_OBJECT(filter, "Getting lattice..");
       decoder.FinalizeDecoding();
       CompactLattice clat;
@@ -891,6 +941,7 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
     if (!more_data) {
       break;
     }
+    GST_DEBUG_OBJECT(filter, "%d frames decoded", decoder.NumFramesDecoded());
     if (filter->do_endpointing
         && (decoder.NumFramesDecoded() > 0)
         && decoder.EndpointDetected(*(filter->endpoint_config))) {
@@ -898,7 +949,8 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
       break;
     }
     num_seconds_decoded += filter->chunk_length_in_secs;
-    if (num_seconds_decoded - last_traceback > traceback_period_secs) {
+    if ((num_seconds_decoded - last_traceback > traceback_period_secs)
+        && (decoder.NumFramesDecoded() > 0)) {
       Lattice lat;
       decoder.GetBestPath(false, &lat);
       gst_kaldinnet2onlinedecoder_partial_result(filter, lat);
@@ -939,14 +991,15 @@ static void gst_kaldinnet2onlinedecoder_loop(
     Gstkaldinnet2onlinedecoder * filter) {
 
   GST_DEBUG_OBJECT(filter, "Starting decoding loop..");
-  BaseFloat traceback_period_secs = 1.0;
+  BaseFloat traceback_period_secs = filter->traceback_period_in_secs;
 
   int32 chunk_length = int32(filter->sample_rate * filter->chunk_length_in_secs);
 
   bool more_data = true;
+  Vector<BaseFloat> remaining_wave_part;
   while (more_data) {
     if (filter->use_threaded_decoder) {
-      gst_kaldinnet2onlinedecoder_threaded_decode_segment(filter, more_data, chunk_length, traceback_period_secs);
+      gst_kaldinnet2onlinedecoder_threaded_decode_segment(filter, more_data, chunk_length, traceback_period_secs, &remaining_wave_part);
     } else {
       gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(filter, more_data, chunk_length, traceback_period_secs);
     }

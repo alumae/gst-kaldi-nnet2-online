@@ -85,6 +85,7 @@ struct _Gstkaldinnet2onlinedecoder {
   int sample_rate;
   gboolean decoding;
   float chunk_length_in_secs;
+  float traceback_period_in_secs;
   bool use_threaded_decoder;
   OnlineIvectorExtractorAdaptationState *adaptation_state;
 
