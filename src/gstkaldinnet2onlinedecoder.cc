@@ -80,9 +80,10 @@ enum {
   PROP_LAST
 };
 
-#define DEFAULT_MODEL           "final.mdl"
-#define DEFAULT_FST             "HCLG.fst"
-#define DEFAULT_WORD_SYMS       "words.txt"
+#define DEFAULT_MODEL           ""
+#define DEFAULT_FST             ""
+#define DEFAULT_WORD_SYMS       ""
+#define DEFAULT_PHONE_SYMS       ""
 #define DEFAULT_LMWT_SCALE	1.0
 #define DEFAULT_CHUNK_LENGTH_IN_SECS  0.05
 #define DEAFULT_USE_THREADED_DECODER false
@@ -111,6 +112,12 @@ static guint gst_kaldinnet2onlinedecoder_signals[LAST_SIGNAL];
 #define gst_kaldinnet2onlinedecoder_parent_class parent_class
 G_DEFINE_TYPE(Gstkaldinnet2onlinedecoder, gst_kaldinnet2onlinedecoder,
               GST_TYPE_ELEMENT);
+
+static void gst_kaldinnet2onlinedecoder_load_model(Gstkaldinnet2onlinedecoder * filter,
+                                                   const GValue * value);
+
+static void gst_kaldinnet2onlinedecoder_load_fst(Gstkaldinnet2onlinedecoder * filter,
+                                                   const GValue * value);
 
 static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
                                                      guint prop_id,
@@ -439,12 +446,10 @@ static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
       filter->silent = g_value_get_boolean(value);
       break;
     case PROP_MODEL:
-      g_free(filter->model_rspecifier);
-      filter->model_rspecifier = g_value_dup_string(value);
+      gst_kaldinnet2onlinedecoder_load_model(filter, value);
       break;
     case PROP_FST:
-      g_free(filter->fst_rspecifier);
-      filter->fst_rspecifier = g_value_dup_string(value);
+      gst_kaldinnet2onlinedecoder_load_fst(filter, value);
       break;
     case PROP_WORD_SYMS:
       g_free(filter->word_syms_filename);
@@ -1071,43 +1076,126 @@ static GstFlowReturn gst_kaldinnet2onlinedecoder_chain(GstPad * pad,
   }
 }
 
+static void
+gst_kaldinnet2onlinedecoder_load_model(Gstkaldinnet2onlinedecoder * filter,
+                                       const GValue * value) {
+    if (G_VALUE_HOLDS_STRING(value)) {
+        gchar* str = g_value_dup_string(value);
+
+        // Check if the model has changed
+        if (strcmp(str, filter->model_rspecifier) != 0 && strcmp(str, "") != 0) {
+            // Build objects if needed
+            if (!filter->trans_model) {
+                filter->trans_model = new TransitionModel();
+            }
+
+            if (!filter->nnet) {
+                filter->nnet = new nnet2::AmNnet();
+            }
+
+            // Read the new models
+            try {
+                bool binary;
+                Input ki(str, &binary);
+                filter->trans_model->Read(ki.Stream(), binary);
+                filter->nnet->Read(ki.Stream(), binary);
+            } catch (std::runtime_error& e) {
+                GST_WARNING_OBJECT(filter, "Error loading the model: %s", str);
+            }
+
+            g_free(filter->model_rspecifier);
+            filter->model_rspecifier = g_strdup(str);
+        }
+
+        g_free(str);
+    } else {
+        GST_WARNING_OBJECT(filter, "Model property must be a Kaldi rspecifier string. Ignoring it.");
+    }
+}
+
+static void
+gst_kaldinnet2onlinedecoder_load_fst(Gstkaldinnet2onlinedecoder * filter,
+                                     const GValue * value) {
+    if (G_VALUE_HOLDS_STRING(value)) {
+        gchar* str = g_value_dup_string(value);
+
+        // Check if the model has changed
+        if (strcmp(str, filter->fst_rspecifier) != 0 && strcmp(str, "") != 0) {
+            try {
+                GST_DEBUG_OBJECT(filter, "Loading decoder graph: %s", str);
+
+                fst::Fst<fst::StdArc> * new_decode_fst = fst::ReadFstKaldi(str);
+
+                // Delete objects if needed
+                if (filter->decode_fst) {
+                    delete filter->decode_fst;
+                }
+
+                // Replace the decoding graph
+                filter->decode_fst = new_decode_fst;
+
+            } catch (std::runtime_error& e) {
+              GST_WARNING_OBJECT(filter, "Error loading the FST decoding graph: %s", str);
+            }
+
+            g_free(filter->fst_rspecifier);
+            filter->fst_rspecifier = g_strdup(str);
+        }
+
+        g_free(str);
+    } else {
+        GST_WARNING_OBJECT(filter, "FST property must be a Kaldi rspecifier string. Ignoring it.");
+    }
+}
 
 static bool
 gst_kaldinnet2onlinedecoder_allocate(
     Gstkaldinnet2onlinedecoder * filter) {
-  if (!filter->decode_fst) {
-    GST_INFO_OBJECT(filter, "Loading Kaldi models and feature extractor");
+  GST_INFO_OBJECT(filter, "Loading Kaldi models and feature extractor");
 
-    filter->audio_source = new GstBufferSource();
+  if (!filter->audio_source) {
+      filter->audio_source = new GstBufferSource();
+  }
 
-    if (filter->feature_info == NULL) {
+  if (filter->feature_info == NULL) {
       filter->feature_info = new OnlineNnet2FeaturePipelineInfo(*(filter->feature_config));
-      filter->sample_rate = (int) filter->feature_info->mfcc_opts.frame_opts.samp_freq;
-    }
+  }
 
-    filter->sample_rate = (int) filter->feature_info->mfcc_opts.frame_opts.samp_freq;
+  filter->sample_rate = (int) filter->feature_info->mfcc_opts.frame_opts.samp_freq;
 
-    filter->trans_model = new TransitionModel();
-    filter->nnet = new nnet2::AmNnet();
-    {
-      bool binary;
-      Input ki(filter->model_rspecifier, &binary);
-      filter->trans_model->Read(ki.Stream(), binary);
-      filter->nnet->Read(ki.Stream(), binary);
-    }
+  /*
+  if (!filter->trans_model) {
+      filter->trans_model = new TransitionModel();
+      filter->nnet = new nnet2::AmNnet();
+      {
+        bool binary;
+        Input ki(filter->model_rspecifier, &binary);
+        filter->trans_model->Read(ki.Stream(), binary);
+        filter->nnet->Read(ki.Stream(), binary);
+      }
+  }
 
+
+  if (!filter->decode_fst) {
     filter->decode_fst = fst::ReadFstKaldi(filter->fst_rspecifier);
+  }
+  */
 
+  if (!filter->word_syms) {
     if (!(filter->word_syms = fst::SymbolTable::ReadText(
         filter->word_syms_filename))) {
       GST_ERROR_OBJECT(filter, "Could not read symbol table from file %s",
                        filter->word_syms_filename);
       return false;
     }
+  }
 
+  if (!filter->adaptation_state) {
     filter->adaptation_state = new OnlineIvectorExtractorAdaptationState(
         filter->feature_info->ivector_extractor_info);
+  }
 
+  if (!filter->lm_fst || !filter->lm_compose_cache || !filter->big_lm_const_arpa) {
     if ((strlen(filter->lm_fst_name) > 0) &&
         (strlen(filter->big_lm_const_arpa_name) > 0)) {
       GST_DEBUG_OBJECT(filter, "Loading models for LM rescoring with a big LM");
@@ -1155,10 +1243,9 @@ gst_kaldinnet2onlinedecoder_allocate(
       GST_DEBUG_OBJECT(filter, "Loading big LM in constant ARPA format");
       filter->big_lm_const_arpa = new ConstArpaLm();
       ReadKaldiObject(filter->big_lm_const_arpa_name, filter->big_lm_const_arpa);
-
     }
-
   }
+
   return true;
 }
 
