@@ -112,6 +112,9 @@ static guint gst_kaldinnet2onlinedecoder_signals[LAST_SIGNAL];
 G_DEFINE_TYPE(Gstkaldinnet2onlinedecoder, gst_kaldinnet2onlinedecoder,
               GST_TYPE_ELEMENT);
 
+static void gst_kaldinnet2onlinedecoder_load_word_syms(Gstkaldinnet2onlinedecoder * filter,
+                                                       const GValue * value);
+
 static void gst_kaldinnet2onlinedecoder_load_model(Gstkaldinnet2onlinedecoder * filter,
                                                    const GValue * value);
 
@@ -455,8 +458,7 @@ static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
       gst_kaldinnet2onlinedecoder_load_fst(filter, value);
       break;
     case PROP_WORD_SYMS:
-      g_free(filter->word_syms_filename);
-      filter->word_syms_filename = g_value_dup_string(value);
+      gst_kaldinnet2onlinedecoder_load_word_syms(filter, value);
       break;
     case PROP_DO_ENDPOINTING:
       filter->do_endpointing = g_value_get_boolean(value);
@@ -1080,6 +1082,45 @@ static GstFlowReturn gst_kaldinnet2onlinedecoder_chain(GstPad * pad,
 }
 
 static void
+gst_kaldinnet2onlinedecoder_load_word_syms(Gstkaldinnet2onlinedecoder * filter,
+                                           const GValue * value) {
+    if (G_VALUE_HOLDS_STRING(value)) {
+        gchar* str = g_value_dup_string(value);
+
+        // Check if the model has changed
+        if (strcmp(str, filter->word_syms_filename) != 0 && strcmp(str, "") != 0) {
+            try {
+                GST_DEBUG_OBJECT(filter, "Loading word symbols file: %s", str);
+
+                fst::SymbolTable * new_word_syms = fst::SymbolTable::ReadText(str);
+                if (!new_word_syms) {
+                    throw std::runtime_error("FST Symbol Table not read.");
+                }
+
+                // Delete old objects if needed
+                if (filter->word_syms) {
+                    delete filter->word_syms;
+                }
+
+                // Replace the symbol table
+                filter->word_syms = new_word_syms;
+
+                // Only change the parameter if it has worked correctly
+                g_free(filter->word_syms_filename);
+                filter->word_syms_filename = g_strdup(str);
+
+            } catch (std::runtime_error& e) {
+              GST_WARNING_OBJECT(filter, "Error loading the word symbol table: %s", str);
+            }
+        }
+
+        g_free(str);
+    } else {
+        GST_WARNING_OBJECT(filter, "Word symbols filename property must be a string. Ignoring it.");
+    }
+}
+
+static void
 gst_kaldinnet2onlinedecoder_load_model(Gstkaldinnet2onlinedecoder * filter,
                                        const GValue * value) {
     if (G_VALUE_HOLDS_STRING(value)) {
@@ -1102,12 +1143,14 @@ gst_kaldinnet2onlinedecoder_load_model(Gstkaldinnet2onlinedecoder * filter,
                 Input ki(str, &binary);
                 filter->trans_model->Read(ki.Stream(), binary);
                 filter->nnet->Read(ki.Stream(), binary);
+
+                // Only change the parameter if it has worked correctly
+                g_free(filter->model_rspecifier);
+                filter->model_rspecifier = g_strdup(str);
+
             } catch (std::runtime_error& e) {
                 GST_WARNING_OBJECT(filter, "Error loading the model: %s", str);
             }
-
-            g_free(filter->model_rspecifier);
-            filter->model_rspecifier = g_strdup(str);
         }
 
         g_free(str);
@@ -1137,12 +1180,13 @@ gst_kaldinnet2onlinedecoder_load_fst(Gstkaldinnet2onlinedecoder * filter,
                 // Replace the decoding graph
                 filter->decode_fst = new_decode_fst;
 
+                // Only change the parameter if it has worked correctly
+                g_free(filter->fst_rspecifier);
+                filter->fst_rspecifier = g_strdup(str);
+
             } catch (std::runtime_error& e) {
               GST_WARNING_OBJECT(filter, "Error loading the FST decoding graph: %s", str);
             }
-
-            g_free(filter->fst_rspecifier);
-            filter->fst_rspecifier = g_strdup(str);
         }
 
         g_free(str);
@@ -1165,15 +1209,6 @@ gst_kaldinnet2onlinedecoder_allocate(
   }
 
   filter->sample_rate = (int) filter->feature_info->mfcc_opts.frame_opts.samp_freq;
-
-  if (!filter->word_syms) {
-    if (!(filter->word_syms = fst::SymbolTable::ReadText(
-        filter->word_syms_filename))) {
-      GST_ERROR_OBJECT(filter, "Could not read symbol table from file %s",
-                       filter->word_syms_filename);
-      return false;
-    }
-  }
 
   if (!filter->adaptation_state) {
     filter->adaptation_state = new OnlineIvectorExtractorAdaptationState(
