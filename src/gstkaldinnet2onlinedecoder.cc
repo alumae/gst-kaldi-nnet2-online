@@ -83,7 +83,6 @@ enum {
 #define DEFAULT_MODEL           ""
 #define DEFAULT_FST             ""
 #define DEFAULT_WORD_SYMS       ""
-#define DEFAULT_PHONE_SYMS       ""
 #define DEFAULT_LMWT_SCALE	1.0
 #define DEFAULT_CHUNK_LENGTH_IN_SECS  0.05
 #define DEAFULT_USE_THREADED_DECODER false
