@@ -1163,24 +1163,6 @@ gst_kaldinnet2onlinedecoder_allocate(
 
   filter->sample_rate = (int) filter->feature_info->mfcc_opts.frame_opts.samp_freq;
 
-  /*
-  if (!filter->trans_model) {
-      filter->trans_model = new TransitionModel();
-      filter->nnet = new nnet2::AmNnet();
-      {
-        bool binary;
-        Input ki(filter->model_rspecifier, &binary);
-        filter->trans_model->Read(ki.Stream(), binary);
-        filter->nnet->Read(ki.Stream(), binary);
-      }
-  }
-
-
-  if (!filter->decode_fst) {
-    filter->decode_fst = fst::ReadFstKaldi(filter->fst_rspecifier);
-  }
-  */
-
   if (!filter->word_syms) {
     if (!(filter->word_syms = fst::SymbolTable::ReadText(
         filter->word_syms_filename))) {
