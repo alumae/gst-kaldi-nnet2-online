@@ -298,6 +298,10 @@ static void gst_kaldinnet2onlinedecoder_init(
   double tmp_double;
   std::string tmp_string;
 
+  filter->trans_model = NULL;
+  filter->nnet = NULL;
+  filter->decode_fst = NULL;
+
   filter->sinkpad = NULL;
 
   filter->sinkpad = gst_pad_new_from_static_template(&sink_template, "sink");
@@ -1092,7 +1096,7 @@ gst_kaldinnet2onlinedecoder_load_model(Gstkaldinnet2onlinedecoder * filter,
                 filter->nnet = new nnet2::AmNnet();
             }
 
-            // Read the new models
+            // Make the objects read the new models
             try {
                 bool binary;
                 Input ki(str, &binary);
