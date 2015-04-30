@@ -1,6 +1,7 @@
 // gstkaldinnet2onlinedecoder.h
 
 // Copyright 2014 Tanel Alumäe
+// Copyright 2015 University of Sheffield (author: Ricard Marxer <r.marxer@sheffield.ac.uk>)
 
 // See ../COPYING for clarification regarding multiple authors
 //
