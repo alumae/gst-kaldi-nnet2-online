@@ -44,6 +44,6 @@ Run:
     
 Note that the GUI demo runs very slowlly when using the threaded decoder.
 (that's why we don't use it in the GUI demo).
-This probably has something to do with Python, GIL, etc. I have no idea no
+This probably has something to do with Python, GIL, etc. I have no idea how
 to fix it.
 
