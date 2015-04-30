@@ -8,7 +8,7 @@ DNN acoustic models. The iVectors are adapted to the current audio stream automa
 # CHANGELOG
 
 2015-04-30: Added functionality to change models (FST, acoustic model,
-big language model) after initial initializetion. Added functionality to 
+big language model) after initial initialization. Added functionality to 
 ouput phone aligment information (see properties `do-phone-alignment`
 and `phone-syms`). Both additions by Ricard Marxer (@rikrd).
 
