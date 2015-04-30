@@ -2,6 +2,7 @@
  * GStreamer
  * Copyright 2014 Tanel Alumae <tanel.alumae@phon.ioc.ee>
  * Copyright 2014 Johns Hopkins University (author: Daniel Povey)
+ * Copyright 2014 University of Sheffield (author: Ricard Marxer <r.marxer@sheffield.ac.uk>)
  *
  * 
  *
