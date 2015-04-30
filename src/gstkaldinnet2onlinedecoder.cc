@@ -132,7 +132,13 @@ static void gst_kaldinnet2onlinedecoder_load_model(Gstkaldinnet2onlinedecoder * 
                                                    const GValue * value);
 
 static void gst_kaldinnet2onlinedecoder_load_fst(Gstkaldinnet2onlinedecoder * filter,
-                                                   const GValue * value);
+                                                 const GValue * value);
+
+static void gst_kaldinnet2onlinedecoder_load_lm_fst(Gstkaldinnet2onlinedecoder * filter,
+                                                    const GValue * value);
+
+static void gst_kaldinnet2onlinedecoder_load_big_lm(Gstkaldinnet2onlinedecoder * filter,
+                                                    const GValue * value);
 
 static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
                                                      guint prop_id,
@@ -541,12 +547,10 @@ static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
       filter->traceback_period_in_secs = g_value_get_float(value);
       break;
     case PROP_LM_FST:
-      g_free(filter->lm_fst_name);
-      filter->lm_fst_name = g_value_dup_string(value);
+      gst_kaldinnet2onlinedecoder_load_lm_fst(filter, value);
       break;
     case PROP_BIG_LM_CONST_ARPA:
-      g_free(filter->big_lm_const_arpa_name);
-      filter->big_lm_const_arpa_name = g_value_dup_string(value);
+      gst_kaldinnet2onlinedecoder_load_big_lm(filter, value);
       break;
     case PROP_USE_THREADED_DECODER:
       filter->use_threaded_decoder = g_value_get_boolean(value);
@@ -1346,6 +1350,112 @@ gst_kaldinnet2onlinedecoder_load_fst(Gstkaldinnet2onlinedecoder * filter,
     }
 }
 
+static void
+gst_kaldinnet2onlinedecoder_load_lm_fst(Gstkaldinnet2onlinedecoder * filter,
+                                        const GValue * value) {
+  if (G_VALUE_HOLDS_STRING(value)) {
+    gchar* str = g_value_dup_string(value);
+
+    // Check if the model has changed
+    if (strcmp(str, filter->lm_fst_name) != 0 && strcmp(str, "") != 0) {
+      try {
+        GST_DEBUG_OBJECT(filter, "Loading baseline language model FST: %s", str);
+
+        // Delete objects if needed
+        if (filter->lm_fst) {
+          delete filter->lm_fst;
+        }
+        if (filter->lm_compose_cache) {
+          delete filter->lm_compose_cache;
+        }
+
+        fst::script::MutableFstClass *fst =
+            fst::script::MutableFstClass::Read(str, true);
+        fst::script::Project(fst, fst::PROJECT_OUTPUT);
+
+        const fst::Fst<fst::StdArc> *tmp_fst = fst->GetFst<fst::StdArc>();
+
+        fst::VectorFst<fst::StdArc> *std_lm_fst = new fst::VectorFst<fst::StdArc>(*tmp_fst);
+
+        if (std_lm_fst->Properties(fst::kILabelSorted, true) == 0) {
+          // Make sure LM is sorted on ilabel.
+          fst::ILabelCompare<fst::StdArc> ilabel_comp;
+          fst::ArcSort(std_lm_fst, ilabel_comp);
+        }
+
+        // mapped_fst is the LM fst interpreted using the LatticeWeight semiring,
+        // with all the cost on the first member of the pair (since it's a graph
+        // weight).
+        int32 num_states_cache = 50000;
+        fst::CacheOptions cache_opts(true, num_states_cache);
+        fst::StdToLatticeMapper<BaseFloat> mapper;
+        filter->lm_fst = new fst::MapFst<fst::StdArc, LatticeArc,
+            fst::StdToLatticeMapper<BaseFloat> >(*std_lm_fst, mapper, cache_opts);
+        delete std_lm_fst;
+        delete fst;
+        // FIXME: maybe?
+        //delete tmp_fst;
+
+        // The next fifteen or so lines are a kind of optimization and
+        // can be ignored if you just want to understand what is going on.
+        // Change the options for TableCompose to match the input
+        // (because it's the arcs of the LM FST we want to do lookup
+        // on).
+        fst::TableComposeOptions compose_opts(fst::TableMatcherOptions(),
+                                              true, fst::SEQUENCE_FILTER,
+                                              fst::MATCH_INPUT);
+
+        // The following is an optimization for the TableCompose
+        // composition: it stores certain tables that enable fast
+        // lookup of arcs during composition.
+        filter->lm_compose_cache = new fst::TableComposeCache<fst::Fst<LatticeArc> >(compose_opts);
+
+        // Only change the parameter if it has worked correctly
+        g_free(filter->lm_fst_name);
+        filter->lm_fst_name = g_strdup(str);
+      } catch (std::runtime_error& e) {
+        GST_WARNING_OBJECT(filter, "Error loading the FST decoding graph: %s", str);
+      }
+    }
+
+    g_free(str);
+  } else {
+    GST_WARNING_OBJECT(filter, "lm-fst property must be a Kaldi rspecifier string. Ignoring it.");
+  }
+}
+
+static void
+gst_kaldinnet2onlinedecoder_load_big_lm(Gstkaldinnet2onlinedecoder * filter,
+                                        const GValue * value) {
+  if (G_VALUE_HOLDS_STRING(value)) {
+    gchar* str = g_value_dup_string(value);
+
+    // Check if the model has changed
+    if (strcmp(str, filter->big_lm_const_arpa_name) != 0 && strcmp(str, "") != 0) {
+      try {
+        GST_DEBUG_OBJECT(filter, "Loading big language model in constant ARPA format: %s", str);
+
+        // Delete object if needed
+        if (filter->big_lm_const_arpa) {
+          delete filter->big_lm_const_arpa;
+        }
+        filter->big_lm_const_arpa = new ConstArpaLm();
+        ReadKaldiObject(str, filter->big_lm_const_arpa);
+
+        // Only change the parameter if it has worked correctly
+        g_free(filter->big_lm_const_arpa_name);
+        filter->big_lm_const_arpa_name = g_strdup(str);
+      } catch (std::runtime_error& e) {
+        GST_WARNING_OBJECT(filter, "Error loading the FST decoding graph: %s", str);
+      }
+    }
+
+    g_free(str);
+  } else {
+    GST_WARNING_OBJECT(filter, "lm-fst property must be a Kaldi rspecifier string. Ignoring it.");
+  }
+}
+
 static bool
 gst_kaldinnet2onlinedecoder_allocate(
     Gstkaldinnet2onlinedecoder * filter) {
@@ -1374,57 +1484,6 @@ gst_kaldinnet2onlinedecoder_allocate(
                          filter->phone_syms_filename);
         return false;
       }
-    }
-  }
-  
-  if (!filter->lm_fst || !filter->lm_compose_cache || !filter->big_lm_const_arpa) {
-    if ((strlen(filter->lm_fst_name) > 0) &&
-        (strlen(filter->big_lm_const_arpa_name) > 0)) {
-      GST_DEBUG_OBJECT(filter, "Loading models for LM rescoring with a big LM");
-      fst::script::MutableFstClass *fst =
-          fst::script::MutableFstClass::Read(filter->lm_fst_name, true);
-      fst::script::Project(fst, fst::PROJECT_OUTPUT);
-
-      const fst::Fst<fst::StdArc> *tmp_fst = fst->GetFst<fst::StdArc>();
-
-      fst::VectorFst<fst::StdArc> *std_lm_fst = new fst::VectorFst<fst::StdArc>(*tmp_fst);
-
-      if (std_lm_fst->Properties(fst::kILabelSorted, true) == 0) {
-        // Make sure LM is sorted on ilabel.
-        fst::ILabelCompare<fst::StdArc> ilabel_comp;
-        fst::ArcSort(std_lm_fst, ilabel_comp);
-      }
-
-      // mapped_fst is the LM fst interpreted using the LatticeWeight semiring,
-      // with all the cost on the first member of the pair (since it's a graph
-      // weight).
-      int32 num_states_cache = 50000;
-      fst::CacheOptions cache_opts(true, num_states_cache);
-      fst::StdToLatticeMapper<BaseFloat> mapper;
-      filter->lm_fst = new fst::MapFst<fst::StdArc, LatticeArc,
-          fst::StdToLatticeMapper<BaseFloat> >(*std_lm_fst, mapper, cache_opts);
-      delete std_lm_fst;
-      delete fst;
-      // FIXME: maybe?
-      //delete tmp_fst;
-
-      // The next fifteen or so lines are a kind of optimization and
-      // can be ignored if you just want to understand what is going on.
-      // Change the options for TableCompose to match the input
-      // (because it's the arcs of the LM FST we want to do lookup
-      // on).
-      fst::TableComposeOptions compose_opts(fst::TableMatcherOptions(),
-                                            true, fst::SEQUENCE_FILTER,
-                                            fst::MATCH_INPUT);
-
-      // The following is an optimization for the TableCompose
-      // composition: it stores certain tables that enable fast
-      // lookup of arcs during composition.
-      filter->lm_compose_cache = new fst::TableComposeCache<fst::Fst<LatticeArc> >(compose_opts);
-
-      GST_DEBUG_OBJECT(filter, "Loading big LM in constant ARPA format");
-      filter->big_lm_const_arpa = new ConstArpaLm();
-      ReadKaldiObject(filter->big_lm_const_arpa_name, filter->big_lm_const_arpa);
     }
   }
 

@@ -131,3 +131,17 @@ https://github.com/alumae/kaldi-gstreamer-server, in file kaldigstserver/decoder
 
 
 
+# CITING
+
+If you use this software for research, you can cite the following paper 
+(available here: http://ebooks.iospress.nl/volumearticle/37996):
+
+    @inproceedigs{alumae2014,
+      author={Tanel Alum\"{a}e},
+      title="Full-duplex Speech-to-text System for {Estonian}",
+      booktitle="Baltic HLT 2014",
+      year=2014,
+      address="Kaunas, Lihtuania"
+    }
+
+Of course, you should also acknowledge Kaldi, which does all the hard work.
