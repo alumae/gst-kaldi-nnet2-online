@@ -125,6 +125,9 @@ static guint gst_kaldinnet2onlinedecoder_signals[LAST_SIGNAL];
 G_DEFINE_TYPE(Gstkaldinnet2onlinedecoder, gst_kaldinnet2onlinedecoder,
               GST_TYPE_ELEMENT);
 
+static void gst_kaldinnet2onlinedecoder_load_phone_syms(Gstkaldinnet2onlinedecoder * filter,
+                                                        const GValue * value);
+
 static void gst_kaldinnet2onlinedecoder_load_word_syms(Gstkaldinnet2onlinedecoder * filter,
                                                        const GValue * value);
 
@@ -525,8 +528,7 @@ static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
       gst_kaldinnet2onlinedecoder_load_word_syms(filter, value);
       break;
     case PROP_PHONE_SYMS:
-      g_free(filter->phone_syms_filename);
-      filter->phone_syms_filename = g_value_dup_string(value);
+      gst_kaldinnet2onlinedecoder_load_phone_syms(filter, value);
       break;
     case PROP_DO_PHONE_ALIGNMENT:
       filter->do_phone_alignment = g_value_get_boolean(value);
@@ -1249,7 +1251,7 @@ gst_kaldinnet2onlinedecoder_load_word_syms(Gstkaldinnet2onlinedecoder * filter,
 
                 fst::SymbolTable * new_word_syms = fst::SymbolTable::ReadText(str);
                 if (!new_word_syms) {
-                    throw std::runtime_error("FST Symbol Table not read.");
+                    throw std::runtime_error("Word symbol table not read.");
                 }
 
                 // Delete old objects if needed
@@ -1272,6 +1274,45 @@ gst_kaldinnet2onlinedecoder_load_word_syms(Gstkaldinnet2onlinedecoder * filter,
         g_free(str);
     } else {
         GST_WARNING_OBJECT(filter, "Word symbols filename property must be a string. Ignoring it.");
+    }
+}
+
+static void
+gst_kaldinnet2onlinedecoder_load_phone_syms(Gstkaldinnet2onlinedecoder * filter,
+                                           const GValue * value) {
+    if (G_VALUE_HOLDS_STRING(value)) {
+        gchar* str = g_value_dup_string(value);
+
+        // Check if the model has changed
+        if (strcmp(str, filter->phone_syms_filename) != 0 && strcmp(str, "") != 0) {
+            try {
+                GST_DEBUG_OBJECT(filter, "Loading phone symbols file: %s", str);
+
+                fst::SymbolTable * new_phone_syms = fst::SymbolTable::ReadText(str);
+                if (!new_phone_syms) {
+                    throw std::runtime_error("Phone symbol table not read.");
+                }
+
+                // Delete old objects if needed
+                if (filter->phone_syms) {
+                    delete filter->phone_syms;
+                }
+
+                // Replace the symbol table
+                filter->phone_syms = new_phone_syms;
+
+                // Only change the parameter if it has worked correctly
+                g_free(filter->phone_syms_filename);
+                filter->phone_syms_filename = g_strdup(str);
+
+            } catch (std::runtime_error& e) {
+              GST_WARNING_OBJECT(filter, "Error loading the phone symbol table: %s", str);
+            }
+        }
+
+        g_free(str);
+    } else {
+        GST_WARNING_OBJECT(filter, "Phone symbols filename property must be a string. Ignoring it.");
     }
 }
 
@@ -1474,17 +1515,6 @@ gst_kaldinnet2onlinedecoder_allocate(
   if (!filter->adaptation_state) {
     filter->adaptation_state = new OnlineIvectorExtractorAdaptationState(
         filter->feature_info->ivector_extractor_info);
-  }
-
-  if (!filter->phone_syms) {
-    if (strcmp(filter->phone_syms_filename, "") != 0) {
-      if (!(filter->phone_syms = fst::SymbolTable::ReadText(
-        filter->phone_syms_filename))) {
-        GST_ERROR_OBJECT(filter, "Could not read symbol table from file %s",
-                         filter->phone_syms_filename);
-        return false;
-      }
-    }
   }
 
   return true;
