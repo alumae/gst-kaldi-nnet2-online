@@ -735,6 +735,59 @@ static void gst_kaldinnet2onlinedecoder_get_property(GObject * object,
   }
 }
 
+static void gst_kaldinnet2onlinedecoder_phone_alignment(
+    Gstkaldinnet2onlinedecoder * filter, const std::vector<int32>& alignment,
+    bool final) {
+        if (filter->do_phone_alignment) {
+        if (strcmp(filter->phone_syms_filename, "") == 0) {
+            GST_ERROR_OBJECT(filter, "Phoneme symbol table filename (phone-syms) must be set to do phone alignment.");
+        } else if (filter->phone_syms == NULL) {
+            GST_ERROR_OBJECT(filter, "Phoneme symbol table wasn't loaded correctly. Not performing alignment.");
+        } else {
+            GST_DEBUG_OBJECT(filter, "Phoneme alignment...");
+
+            // Output the alignment with the weights
+            std::vector<std::vector<int32> > split;
+            SplitToPhones(*filter->trans_model, alignment, &split);
+
+            GST_DEBUG_OBJECT(filter, "Split to phones finished");
+
+            BaseFloat frame_shift = filter->feature_info->FrameShiftInSeconds();
+            std::vector<std::pair<int32, BaseFloat> > pairs;
+            std::stringstream phone_alignment;
+
+            for (size_t i = 0; i < split.size(); i++) {
+              GST_DEBUG_OBJECT(filter, "Iterating over splits split[%lu].size() == %lu", i, split[i].size());
+              KALDI_ASSERT(split[i].size() > 0);
+              int32 phone = filter->trans_model->TransitionIdToPhone(split[i][0]);
+              std::string s = filter->phone_syms->Find(phone);
+              if (s == "") {
+                GST_ERROR_OBJECT(filter, "Phoneme-id %d not in symbol table.", phone);
+              }
+
+              int32 num_repeats = split[i].size();
+
+              phone_alignment << s << " " << num_repeats*frame_shift << std::endl;
+
+              pairs.push_back(std::make_pair(phone, num_repeats*frame_shift));
+            }
+
+            guint pali_length = phone_alignment.str().length();
+            GstBuffer *pali_buffer = gst_buffer_new_and_alloc(pali_length + 1);
+            gst_buffer_fill(pali_buffer, 0, phone_alignment.str().c_str(), pali_length);
+            gst_buffer_memset(pali_buffer, pali_length, '\n', 1);
+            gst_pad_push(filter->srcpad, pali_buffer);
+
+            /* Emit a signal for applications. */
+            if (final) {
+                g_signal_emit(filter, gst_kaldinnet2onlinedecoder_signals[FINAL_PHONE_ALIGNMENT_SIGNAL], 0, phone_alignment.str().c_str());
+            } else {
+                g_signal_emit(filter, gst_kaldinnet2onlinedecoder_signals[PARTIAL_PHONE_ALIGNMENT_SIGNAL], 0, phone_alignment.str().c_str());
+            }
+        }
+    }
+}
+
 static void gst_kaldinnet2onlinedecoder_final_result(
     Gstkaldinnet2onlinedecoder * filter, CompactLattice &clat,
     int64 *tot_num_frames, double *tot_like, guint *num_words) {
@@ -792,49 +845,7 @@ static void gst_kaldinnet2onlinedecoder_final_result(
   guint hyp_length = sentence.str().length();
   *num_words = hyp_length;
   if (hyp_length > 0) {
-    if (filter->do_phone_alignment) {
-        if (strcmp(filter->phone_syms_filename, "") == 0) {
-            GST_ERROR_OBJECT(filter, "Phoneme symbol table filename (phone-syms) must be set to do phone alignment.");
-        } else if (filter->phone_syms == NULL) {
-            GST_ERROR_OBJECT(filter, "Phoneme symbol table wasn't loaded correctly. Not performing alignment.");
-        } else {
-            GST_DEBUG_OBJECT(filter, "Phoneme alignment...");
-
-            // Output the alignment with the weights
-            std::vector<std::vector<int32> > split;
-            SplitToPhones(*filter->trans_model, alignment, &split);
-
-            GST_DEBUG_OBJECT(filter, "Split to phones finished");
-
-            BaseFloat frame_shift = filter->feature_info->FrameShiftInSeconds();
-            std::vector<std::pair<int32, BaseFloat> > pairs;
-            std::stringstream phone_alignment;
-
-            for (size_t i = 0; i < split.size(); i++) {
-              GST_DEBUG_OBJECT(filter, "Iterating over splits split[%lu].size() == %lu", i, split[i].size());
-              KALDI_ASSERT(split[i].size() > 0);
-              int32 phone = filter->trans_model->TransitionIdToPhone(split[i][0]);
-              std::string s = filter->phone_syms->Find(phone);
-              if (s == "")
-                GST_ERROR_OBJECT(filter, "Phoneme-id %d not in symbol table.", phone);
-
-              int32 num_repeats = split[i].size();
-
-              phone_alignment << s << " " << num_repeats*frame_shift << std::endl;
-
-              pairs.push_back(std::make_pair(phone, num_repeats*frame_shift));
-            }
-
-            guint pali_length = phone_alignment.str().length();
-            GstBuffer *pali_buffer = gst_buffer_new_and_alloc(pali_length + 1);
-            gst_buffer_fill(pali_buffer, 0, phone_alignment.str().c_str(), pali_length);
-            gst_buffer_memset(pali_buffer, pali_length, '\n', 1);
-            gst_pad_push(filter->srcpad, pali_buffer);
-
-            /* Emit a signal for applications. */
-            g_signal_emit(filter, gst_kaldinnet2onlinedecoder_signals[FINAL_PHONE_ALIGNMENT_SIGNAL], 0, phone_alignment.str().c_str());
-        }
-    }
+    gst_kaldinnet2onlinedecoder_phone_alignment(filter, alignment, true);
 
     GstBuffer *buffer = gst_buffer_new_and_alloc(hyp_length + 1);
     gst_buffer_fill(buffer, 0, sentence.str().c_str(), hyp_length);
@@ -865,6 +876,8 @@ static void gst_kaldinnet2onlinedecoder_partial_result(
   }
   GST_DEBUG_OBJECT(filter, "Partial: %s", sentence.str().c_str());
   if (sentence.str().length() > 0) {
+    gst_kaldinnet2onlinedecoder_phone_alignment(filter, alignment, false);
+
     /* Emit a signal for applications. */
     g_signal_emit(filter,
                   gst_kaldinnet2onlinedecoder_signals[PARTIAL_RESULT_SIGNAL], 0,
