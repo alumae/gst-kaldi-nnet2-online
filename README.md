@@ -7,6 +7,11 @@ DNN acoustic models. The iVectors are adapted to the current audio stream automa
 
 # CHANGELOG
 
+2015-04-30: Added functionality to change models (FST, acoustic model,
+big language model) after initial initializetion. Added functionality to 
+ouput phone aligment information (see properties `do-phone-alignment`
+and `phone-syms`). Both additions by Ricard Marxer (@rikrd).
+
 2015-04-28: Endpointing and interim recognition results now work correctly
 when using the threaded decoder. Note that endpointing does not work exactly
 the same as with the unthreaded decoder, and there might be some differences
