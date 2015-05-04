@@ -2,3 +2,7 @@ src/.depend.mk
 *.o
 *.so
 src/kaldimarshal.*
+
+# editor files
+.lvimrc
+tags
