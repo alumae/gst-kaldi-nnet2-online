@@ -1257,8 +1257,8 @@ gst_kaldinnet2onlinedecoder_load_word_syms(Gstkaldinnet2onlinedecoder * filter,
     if (G_VALUE_HOLDS_STRING(value)) {
         gchar* str = g_value_dup_string(value);
 
-        // Check if the model has changed
-        if (strcmp(str, filter->word_syms_filename) != 0 && strcmp(str, "") != 0) {
+        // Check if the model is not empty
+        if (strcmp(str, "") != 0) {
             try {
                 GST_DEBUG_OBJECT(filter, "Loading word symbols file: %s", str);
 
@@ -1296,8 +1296,8 @@ gst_kaldinnet2onlinedecoder_load_phone_syms(Gstkaldinnet2onlinedecoder * filter,
     if (G_VALUE_HOLDS_STRING(value)) {
         gchar* str = g_value_dup_string(value);
 
-        // Check if the model has changed
-        if (strcmp(str, filter->phone_syms_filename) != 0 && strcmp(str, "") != 0) {
+        // Check if the model filename is not empty
+        if (strcmp(str, "") != 0) {
             try {
                 GST_DEBUG_OBJECT(filter, "Loading phone symbols file: %s", str);
 
@@ -1335,8 +1335,8 @@ gst_kaldinnet2onlinedecoder_load_model(Gstkaldinnet2onlinedecoder * filter,
     if (G_VALUE_HOLDS_STRING(value)) {
         gchar* str = g_value_dup_string(value);
 
-        // Check if the model has changed
-        if (strcmp(str, filter->model_rspecifier) != 0 && strcmp(str, "") != 0) {
+        // Check if the model filename is not empty
+        if (strcmp(str, "") != 0) {
             // Build objects if needed
             if (!filter->trans_model) {
                 filter->trans_model = new TransitionModel();
@@ -1374,8 +1374,8 @@ gst_kaldinnet2onlinedecoder_load_fst(Gstkaldinnet2onlinedecoder * filter,
     if (G_VALUE_HOLDS_STRING(value)) {
         gchar* str = g_value_dup_string(value);
 
-        // Check if the model has changed
-        if (strcmp(str, filter->fst_rspecifier) != 0 && strcmp(str, "") != 0) {
+        // Check if the model filename is not empty
+        if (strcmp(str, "") != 0) {
             try {
                 GST_DEBUG_OBJECT(filter, "Loading decoder graph: %s", str);
 
@@ -1410,8 +1410,8 @@ gst_kaldinnet2onlinedecoder_load_lm_fst(Gstkaldinnet2onlinedecoder * filter,
   if (G_VALUE_HOLDS_STRING(value)) {
     gchar* str = g_value_dup_string(value);
 
-    // Check if the model has changed
-    if (strcmp(str, filter->lm_fst_name) != 0 && strcmp(str, "") != 0) {
+    // Check if the model filename is not empty
+    if (strcmp(str, "") != 0) {
       try {
         GST_DEBUG_OBJECT(filter, "Loading baseline language model FST: %s", str);
 
@@ -1484,8 +1484,8 @@ gst_kaldinnet2onlinedecoder_load_big_lm(Gstkaldinnet2onlinedecoder * filter,
   if (G_VALUE_HOLDS_STRING(value)) {
     gchar* str = g_value_dup_string(value);
 
-    // Check if the model has changed
-    if (strcmp(str, filter->big_lm_const_arpa_name) != 0 && strcmp(str, "") != 0) {
+    // Check if the model filename is not empty
+    if (strcmp(str, "") != 0) {
       try {
         GST_DEBUG_OBJECT(filter, "Loading big language model in constant ARPA format: %s", str);
 
