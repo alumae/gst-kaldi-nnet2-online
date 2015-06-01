@@ -101,36 +101,35 @@ enum {
 #define DEFAULT_CHUNK_LENGTH_IN_SECS  0.05
 #define DEFAULT_TRACEBACK_PERIOD_IN_SECS  0.5
 #define DEAFULT_USE_THREADED_DECODER false
-#define DEFAULT_NUM_NBEST 0
-
-
-/* struct object to hold a result of decoding a lattice */
-struct GstLatticeResult {
-
-  std::vector<int32> words;
-  std::vector<int32> alignment;
-  double likelihood;
-  int64 num_frames;
-  std::string sentence;
-
-};
+#define DEFAULT_NUM_NBEST 1
 
 /**
  * Some structs used for storing recognition results
  */
+typedef struct _WordInHypothesis WordInHypothesis;
+typedef struct _PhoneAlignmentInfo PhoneAlignmentInfo;
 typedef struct _NBestResult NBestResult;
 typedef struct _FullFinalResult FullFinalResult;
 
+struct _WordInHypothesis {
+  int32 word_id;
+};
+
+struct _PhoneAlignmentInfo {
+  int32 phone_id;
+  int32 start_frame;
+  int32 length_in_frames;
+};
+
 struct _NBestResult {
-  std::string text;
+  int32 num_frames;
   double likelihood;
+  double likelihood_per_frame;
+  std::vector<WordInHypothesis> words;
+  std::vector<PhoneAlignmentInfo> phone_alignment;
 };
 
 struct _FullFinalResult {
-  std::string text;
-  double likelihood;
-  int32 num_frames;
-  double likelihood_per_frame;
   std::vector<NBestResult> nbest_results;
   std::string phone_alignment;
 };
@@ -353,8 +352,8 @@ static void gst_kaldinnet2onlinedecoder_class_init(
       PROP_NUM_NBEST,
       g_param_spec_uint(
           "num-nbest", "num-nbest",
-          "size of the nbest-results array (if 0 the signal won't be emitted)",
-          0,
+          "number of hypotheses in the full final results",
+          1,
           10000,
           DEFAULT_NUM_NBEST,
           (GParamFlags) G_PARAM_READWRITE));
@@ -781,43 +780,32 @@ static void gst_kaldinnet2onlinedecoder_get_property(GObject * object,
   }
 }
 
-static std::string gst_kaldinnet2onlinedecoder_phone_alignment(
+static std::vector<PhoneAlignmentInfo> gst_kaldinnet2onlinedecoder_phone_alignment(
     Gstkaldinnet2onlinedecoder * filter, const std::vector<int32>& alignment) {
 
-  std::string result = "";
-  if (strcmp(filter->phone_syms_filename, "") == 0) {
-    GST_ERROR_OBJECT(filter, "Phoneme symbol table filename (phone-syms) must be set to do phone alignment.");
-  } else if (filter->phone_syms == NULL) {
-    GST_ERROR_OBJECT(filter, "Phoneme symbol table wasn't loaded correctly. Not performing alignment.");
-  } else {
-    GST_DEBUG_OBJECT(filter, "Phoneme alignment...");
+  std::vector<PhoneAlignmentInfo> result;
 
-    // Output the alignment with the weights
-    std::vector<std::vector<int32> > split;
-    SplitToPhones(*filter->trans_model, alignment, &split);
+  GST_DEBUG_OBJECT(filter, "Phoneme alignment...");
 
-    GST_DEBUG_OBJECT(filter, "Split to phones finished");
+  // Output the alignment with the weights
+  std::vector<std::vector<int32> > split;
+  SplitToPhones(*filter->trans_model, alignment, &split);
 
-    BaseFloat frame_shift = filter->feature_info->FrameShiftInSeconds();
-    std::vector<std::pair<int32, BaseFloat> > pairs;
-    std::stringstream phone_alignment;
+  GST_DEBUG_OBJECT(filter, "Split to phones finished");
 
-    for (size_t i = 0; i < split.size(); i++) {
-      GST_DEBUG_OBJECT(filter, "Iterating over splits split[%lu].size() == %lu", i, split[i].size());
-      KALDI_ASSERT(split[i].size() > 0);
-      int32 phone = filter->trans_model->TransitionIdToPhone(split[i][0]);
-      std::string s = filter->phone_syms->Find(phone);
-      if (s == "") {
-        GST_ERROR_OBJECT(filter, "Phoneme-id %d not in symbol table.", phone);
-      }
+  int32 current_start_frame = 0;
 
-      int32 num_repeats = split[i].size();
+  for (size_t i = 0; i < split.size(); i++) {
+    KALDI_ASSERT(split[i].size() > 0);
+    int32 phone = filter->trans_model->TransitionIdToPhone(split[i][0]);
 
-      phone_alignment << s << " " << num_repeats*frame_shift << std::endl;
+    PhoneAlignmentInfo alignment_info;
+    alignment_info.phone_id = phone;
+    alignment_info.start_frame = current_start_frame;
+    alignment_info.length_in_frames = split[i].size();
 
-      pairs.push_back(std::make_pair(phone, num_repeats*frame_shift));
-    }
-    result = phone_alignment.str();
+    result.push_back(alignment_info);
+    current_start_frame += split[i].size();
   }
   return result;
 }
@@ -840,37 +828,38 @@ static void gst_kaldinnet2onlinedecoder_scale_lattice(
   fst::ScaleLattice(fst::LatticeScale(filter->lmwt_scale, 1.0), &clat);
 }
 
-static void gst_kaldinnet2onlinedecoder_get_lattice_result(
-    Gstkaldinnet2onlinedecoder *filter, const Lattice &lattice,
-    GstLatticeResult *result) {
-
-  LatticeWeight weight;
+static std::string gst_kaldinnet2onlinedecoder_words_to_string(
+    Gstkaldinnet2onlinedecoder *filter, const std::vector<int32> &words) {
   std::stringstream sentence;
-
-  GetLinearSymbolSequence(lattice, &(result->alignment), &(result->words), &weight);
-  result->num_frames = result->alignment.size();
-  result->likelihood = -(weight.Value1() + weight.Value2());
-  for (size_t i = 0; i < result->words.size(); i++) {
-    std::string s = filter->word_syms->Find(result->words[i]);
+  for (size_t i = 0; i < words.size(); i++) {
+    std::string s = filter->word_syms->Find(words[i]);
     if (s == "")
-      GST_ERROR_OBJECT(filter, "Word-id %d not in symbol table.", result->words[i]);
+      GST_ERROR_OBJECT(filter, "Word-id %d not in symbol table.", words[i]);
     if (i > 0) {
       sentence << " ";
     }
     sentence << s;
   }
-  result->sentence = sentence.str();
+  return sentence.str();
+}
+
+
+static std::string gst_kaldinnet2onlinedecoder_words_in_hyp_to_string(
+    Gstkaldinnet2onlinedecoder *filter, const std::vector<WordInHypothesis> &words) {
+  std::vector<int32> word_ids;
+  for (size_t i = 0; i < words.size(); i++) {
+    word_ids.push_back(words[i].word_id);
+  }
+  return gst_kaldinnet2onlinedecoder_words_to_string(filter, word_ids);
 }
 
 static std::vector<NBestResult> gst_kaldinnet2onlinedecoder_nbest_results(
     Gstkaldinnet2onlinedecoder * filter, CompactLattice &clat) {
 
   std::vector<NBestResult> nbest_results;
-  if (filter->num_nbest < 1) {
-    return nbest_results;
-  }
 
-  gst_kaldinnet2onlinedecoder_scale_lattice(filter, clat);
+  // FIXME: is it needed?
+  //gst_kaldinnet2onlinedecoder_scale_lattice(filter, clat);
   Lattice lat;
   ConvertLattice(clat, &lat);
 
@@ -881,12 +870,25 @@ static std::vector<NBestResult> gst_kaldinnet2onlinedecoder_nbest_results(
     fst::ConvertNbestToVector(nbest_lat, &nbest_lats);
   }
 
-  GstLatticeResult result;
   for (size_t i=0; i < nbest_lats.size(); i++) {
-    gst_kaldinnet2onlinedecoder_get_lattice_result(filter, nbest_lats[i], &result);
+    std::vector<int32> words;
+    std::vector<int32> alignment;
+    LatticeWeight weight;
+    GetLinearSymbolSequence(nbest_lats[i], &alignment, &words, &weight);
+
     NBestResult nbest_result;
-    nbest_result.text = result.sentence;
-    nbest_result.likelihood = result.likelihood;
+    nbest_result.likelihood = -(weight.Value1() + weight.Value2());
+    nbest_result.num_frames = alignment.size();
+    nbest_result.likelihood_per_frame = nbest_result.likelihood / nbest_result.num_frames;
+    for (size_t j=0; j < words.size(); j++) {
+      WordInHypothesis word_in_hyp;
+      word_in_hyp.word_id = words[j];
+      nbest_result.words.push_back(word_in_hyp);
+    }
+    if ((i == 0) && (filter->do_phone_alignment)) {
+      nbest_result.phone_alignment =
+          gst_kaldinnet2onlinedecoder_phone_alignment(filter, alignment);
+    }
     nbest_results.push_back(nbest_result);
   }
   return nbest_results;
@@ -894,33 +896,57 @@ static std::vector<NBestResult> gst_kaldinnet2onlinedecoder_nbest_results(
 
 static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
     Gstkaldinnet2onlinedecoder * filter,
-    FullFinalResult &full_final_result) {
+    const FullFinalResult &full_final_result) {
 
   json_t *root = json_object();
+  json_t *result_json_object = json_object();
+  json_object_set_new( root, "status", json_integer(0));
 
-  json_object_set_new( root, "text", json_string(full_final_result.text.c_str()));
-  json_object_set_new( root, "likelihood", json_real(full_final_result.likelihood));
-  json_object_set_new( root, "num_frames", json_integer(full_final_result.num_frames));
-  json_object_set_new( root, "likelihood_per_frame", json_real(full_final_result.likelihood_per_frame));
-  if (full_final_result.phone_alignment.size() > 0) {
-    json_object_set_new( root, "phone_alignment", json_string(full_final_result.phone_alignment.c_str()));
-  }
+  json_object_set_new( root, "result", result_json_object);
+
   if (full_final_result.nbest_results.size() > 0) {
+    json_object_set_new(root, "num-frames",  json_integer(full_final_result.nbest_results[0].num_frames));
     json_t *nbest_json_arr = json_array();
-    for(std::vector<NBestResult>::iterator it = full_final_result.nbest_results.begin();
+    for(std::vector<NBestResult>::const_iterator it = full_final_result.nbest_results.begin();
         it != full_final_result.nbest_results.end(); ++it) {
       NBestResult nbest_result = *it;
       json_t *nbest_result_json_object = json_object();
-      json_object_set_new(nbest_result_json_object, "text",  json_string(nbest_result.text.c_str()));
+      json_object_set_new(nbest_result_json_object, "transcript",
+                          json_string(gst_kaldinnet2onlinedecoder_words_in_hyp_to_string(filter, nbest_result.words).c_str()));
       json_object_set_new(nbest_result_json_object, "likelihood",  json_real(nbest_result.likelihood));
+      json_object_set_new(nbest_result_json_object, "likelihood-per-frame",  json_real(nbest_result.likelihood_per_frame));
       json_array_append( nbest_json_arr, nbest_result_json_object );
       //json_decref(nbest_result_json_object);
+
+      if (nbest_result.phone_alignment.size() > 0) {
+        if (strcmp(filter->phone_syms_filename, "") == 0) {
+          GST_ERROR_OBJECT(filter, "Phoneme symbol table filename (phone-syms) must be set to output phone alignment.");
+        } else if (filter->phone_syms == NULL) {
+          GST_ERROR_OBJECT(filter, "Phoneme symbol table wasn't loaded correctly. Not outputting alignment.");
+        } else {
+          json_t *phone_alignment_json_arr = json_array();
+          BaseFloat frame_shift = filter->feature_info->FrameShiftInSeconds();
+          for (size_t j = 0; j < nbest_result.phone_alignment.size(); j++) {
+            PhoneAlignmentInfo alignment_info = nbest_result.phone_alignment[j];
+            json_t *alignment_info_json_object = json_object();
+            std::string phone = filter->phone_syms->Find(alignment_info.phone_id);
+            json_object_set_new(alignment_info_json_object, "phone",
+                                json_string(phone.c_str()));
+            json_object_set_new(alignment_info_json_object, "start",
+                                json_real(alignment_info.start_frame * frame_shift));
+            json_object_set_new(alignment_info_json_object, "length",
+                                json_real(alignment_info.length_in_frames * frame_shift));
+            json_array_append(phone_alignment_json_arr, alignment_info_json_object);
+
+          }
+          json_object_set_new(nbest_result_json_object, "phone-alignment", phone_alignment_json_arr);
+        }
+      }
     }
-    json_object_set_new( root, "nbest_results", nbest_json_arr);
+
+    json_object_set_new( result_json_object, "hypotheses", nbest_json_arr);
     //json_decref(nbest_json_arr);
   }
-
-
 
   char *ret_strings = json_dumps( root, 0 );
 
@@ -937,67 +963,53 @@ static void gst_kaldinnet2onlinedecoder_final_result(
     KALDI_WARN<< "Empty lattice.";
     return;
   }
-  CompactLattice best_path_clat;
 
   gst_kaldinnet2onlinedecoder_scale_lattice(filter, clat);
 
-  CompactLatticeShortestPath(clat, &best_path_clat);
-
-  Lattice best_path_lat;
-  ConvertLattice(best_path_clat, &best_path_lat);
-
-  GstLatticeResult result;
-  gst_kaldinnet2onlinedecoder_get_lattice_result(filter, best_path_lat, &result);
-
   FullFinalResult full_final_result;
-  full_final_result.text = result.sentence;
-  full_final_result.likelihood = result.likelihood;
-  full_final_result.likelihood_per_frame = result.likelihood / result.num_frames;
-  full_final_result.num_frames = result.num_frames;
+  GST_DEBUG_OBJECT(filter, "Decoding n-best results");
+  full_final_result.nbest_results = gst_kaldinnet2onlinedecoder_nbest_results(filter, clat);
 
-  GST_DEBUG_OBJECT(filter, "Likelihood per frame is %f over %d frames",
-      full_final_result.likelihood_per_frame, full_final_result.num_frames);
-  GST_DEBUG_OBJECT(filter, "Final: %s", full_final_result.text.c_str());
+  if (full_final_result.nbest_results.size() > 0) {
+    std::string best_transcript = gst_kaldinnet2onlinedecoder_words_in_hyp_to_string(filter, full_final_result.nbest_results[0].words);
 
-  guint hyp_length = result.sentence.length();
-  *num_words = result.words.size();
+    GST_DEBUG_OBJECT(filter, "Likelihood per frame is %f over %d frames",
+        full_final_result.nbest_results[0].likelihood_per_frame, full_final_result.nbest_results[0].num_frames);
+    GST_DEBUG_OBJECT(filter, "Final: %s", best_transcript.c_str());
+    guint hyp_length = best_transcript.length();
+    *num_words = full_final_result.nbest_results[0].words.size();
 
+    if (hyp_length > 0) {
+      GstBuffer *buffer = gst_buffer_new_and_alloc(hyp_length + 1);
+      gst_buffer_fill(buffer, 0, best_transcript.c_str(), hyp_length);
+      gst_buffer_memset(buffer, hyp_length, '\n', 1);
+      gst_pad_push(filter->srcpad, buffer);
 
-  if (hyp_length > 0) {
-    if (filter->do_phone_alignment) {
-      full_final_result.phone_alignment = gst_kaldinnet2onlinedecoder_phone_alignment(filter, result.alignment);
+      /* Emit a signal for applications. */
+      g_signal_emit(filter, gst_kaldinnet2onlinedecoder_signals[FINAL_RESULT_SIGNAL], 0, best_transcript.c_str());
+
+      std::string full_final_result_as_json =
+          gst_kaldinnet2onlinedecoder_full_final_result_to_json(filter, full_final_result);
+      GST_DEBUG_OBJECT(filter, "Final JSON: %s", full_final_result_as_json.c_str());
+      g_signal_emit(filter, gst_kaldinnet2onlinedecoder_signals[FULL_FINAL_RESULT_SIGNAL], 0, full_final_result_as_json.c_str());
+
     }
-    if (filter->num_nbest > 0) {
-      full_final_result.nbest_results = gst_kaldinnet2onlinedecoder_nbest_results(filter, clat);
-    }
-
-    GstBuffer *buffer = gst_buffer_new_and_alloc(hyp_length + 1);
-    gst_buffer_fill(buffer, 0, result.sentence.c_str(), hyp_length);
-    gst_buffer_memset(buffer, hyp_length, '\n', 1);
-    gst_pad_push(filter->srcpad, buffer);
-
-    /* Emit a signal for applications. */
-    g_signal_emit(filter, gst_kaldinnet2onlinedecoder_signals[FINAL_RESULT_SIGNAL], 0, full_final_result.text.c_str());
-
-    std::string full_final_result_as_json =
-        gst_kaldinnet2onlinedecoder_full_final_result_to_json(filter, full_final_result);
-    GST_DEBUG_OBJECT(filter, "Final JSON: %s", full_final_result_as_json.c_str());
-    g_signal_emit(filter, gst_kaldinnet2onlinedecoder_signals[FULL_FINAL_RESULT_SIGNAL], 0, full_final_result_as_json.c_str());
-
   }
 }
 
 static void gst_kaldinnet2onlinedecoder_partial_result(
     Gstkaldinnet2onlinedecoder * filter, const Lattice lat) {
-  GstLatticeResult result;
-  gst_kaldinnet2onlinedecoder_get_lattice_result(filter, lat, &result);
-  GST_DEBUG_OBJECT(filter, "Partial: %s", result.sentence.c_str());
-  if (result.sentence.length() > 0) {
-
+  std::vector<int32> words;
+  std::vector<int32> alignment;
+  LatticeWeight weight;
+  GetLinearSymbolSequence(lat, &alignment, &words, &weight);
+  std::string transcript = gst_kaldinnet2onlinedecoder_words_to_string(filter, words);
+  GST_DEBUG_OBJECT(filter, "Partial: %s", transcript.c_str());
+  if (transcript.length() > 0) {
     /* Emit a signal for applications. */
     g_signal_emit(filter,
                   gst_kaldinnet2onlinedecoder_signals[PARTIAL_RESULT_SIGNAL], 0,
-                  result.sentence.c_str());
+                  transcript.c_str());
   }
 }
 
@@ -1143,10 +1155,8 @@ static void gst_kaldinnet2onlinedecoder_threaded_decode_segment(Gstkaldinnet2onl
 
       guint num_words = 0;
       gst_kaldinnet2onlinedecoder_final_result(filter, clat, &num_words);
-      if (filter->num_nbest > 0)
-          gst_kaldinnet2onlinedecoder_nbest_results(filter, clat);
-      if (num_words > 0) {
-        // Only update adaptation state if the utterance was not empty
+      if (num_words > 1) {
+        // Only update adaptation state if the utterance contained more than one word
         decoder.GetAdaptationState(filter->adaptation_state);
       }
     } else {
@@ -1215,10 +1225,8 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
 
     guint num_words = 0;
     gst_kaldinnet2onlinedecoder_final_result(filter, clat, &num_words);
-    if (filter->num_nbest > 0)
-        gst_kaldinnet2onlinedecoder_nbest_results(filter, clat);
-    if (num_words > 0) {
-      // Only update adaptation state if the utterance was not empty
+    if (num_words > 1) {
+      // Only update adaptation state if the utterance contained more than one word
       feature_pipeline.GetAdaptationState(filter->adaptation_state);
     }
   } else {
