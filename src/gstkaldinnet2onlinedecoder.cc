@@ -124,7 +124,6 @@ struct _PhoneAlignmentInfo {
 struct _NBestResult {
   int32 num_frames;
   double likelihood;
-  double likelihood_per_frame;
   std::vector<WordInHypothesis> words;
   std::vector<PhoneAlignmentInfo> phone_alignment;
 };
@@ -879,7 +878,6 @@ static std::vector<NBestResult> gst_kaldinnet2onlinedecoder_nbest_results(
     NBestResult nbest_result;
     nbest_result.likelihood = -(weight.Value1() + weight.Value2());
     nbest_result.num_frames = alignment.size();
-    nbest_result.likelihood_per_frame = nbest_result.likelihood / nbest_result.num_frames;
     for (size_t j=0; j < words.size(); j++) {
       WordInHypothesis word_in_hyp;
       word_in_hyp.word_id = words[j];
@@ -905,7 +903,8 @@ static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
   json_object_set_new( root, "result", result_json_object);
 
   if (full_final_result.nbest_results.size() > 0) {
-    json_object_set_new(root, "num-frames",  json_integer(full_final_result.nbest_results[0].num_frames));
+    BaseFloat frame_shift = filter->feature_info->FrameShiftInSeconds();
+    json_object_set_new(root, "audio-length",  json_real(full_final_result.nbest_results[0].num_frames * frame_shift));
     json_t *nbest_json_arr = json_array();
     for(std::vector<NBestResult>::const_iterator it = full_final_result.nbest_results.begin();
         it != full_final_result.nbest_results.end(); ++it) {
@@ -914,10 +913,7 @@ static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
       json_object_set_new(nbest_result_json_object, "transcript",
                           json_string(gst_kaldinnet2onlinedecoder_words_in_hyp_to_string(filter, nbest_result.words).c_str()));
       json_object_set_new(nbest_result_json_object, "likelihood",  json_real(nbest_result.likelihood));
-      json_object_set_new(nbest_result_json_object, "likelihood-per-frame",  json_real(nbest_result.likelihood_per_frame));
       json_array_append( nbest_json_arr, nbest_result_json_object );
-      //json_decref(nbest_result_json_object);
-
       if (nbest_result.phone_alignment.size() > 0) {
         if (strcmp(filter->phone_syms_filename, "") == 0) {
           GST_ERROR_OBJECT(filter, "Phoneme symbol table filename (phone-syms) must be set to output phone alignment.");
@@ -925,7 +921,6 @@ static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
           GST_ERROR_OBJECT(filter, "Phoneme symbol table wasn't loaded correctly. Not outputting alignment.");
         } else {
           json_t *phone_alignment_json_arr = json_array();
-          BaseFloat frame_shift = filter->feature_info->FrameShiftInSeconds();
           for (size_t j = 0; j < nbest_result.phone_alignment.size(); j++) {
             PhoneAlignmentInfo alignment_info = nbest_result.phone_alignment[j];
             json_t *alignment_info_json_object = json_object();
@@ -945,7 +940,6 @@ static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
     }
 
     json_object_set_new(result_json_object, "hypotheses", nbest_json_arr);
-    //json_decref(nbest_json_arr);
   }
 
   char *ret_strings = json_dumps(root, JSON_REAL_PRECISION(6));
@@ -974,7 +968,7 @@ static void gst_kaldinnet2onlinedecoder_final_result(
     std::string best_transcript = gst_kaldinnet2onlinedecoder_words_in_hyp_to_string(filter, full_final_result.nbest_results[0].words);
 
     GST_DEBUG_OBJECT(filter, "Likelihood per frame is %f over %d frames",
-        full_final_result.nbest_results[0].likelihood_per_frame, full_final_result.nbest_results[0].num_frames);
+        full_final_result.nbest_results[0].likelihood/full_final_result.nbest_results[0].num_frames , full_final_result.nbest_results[0].num_frames);
     GST_DEBUG_OBJECT(filter, "Final: %s", best_transcript.c_str());
     guint hyp_length = best_transcript.length();
     *num_words = full_final_result.nbest_results[0].words.size();
