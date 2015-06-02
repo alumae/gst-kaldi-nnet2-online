@@ -904,7 +904,10 @@ static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
 
   if (full_final_result.nbest_results.size() > 0) {
     BaseFloat frame_shift = filter->feature_info->FrameShiftInSeconds();
-    json_object_set_new(root, "audio-length",  json_real(full_final_result.nbest_results[0].num_frames * frame_shift));
+    json_object_set_new(root, "segment-start",  json_real(filter->segment_start_time));
+
+    json_object_set_new(root, "segment-length",  json_real(full_final_result.nbest_results[0].num_frames * frame_shift));
+    json_object_set_new(root, "total-length",  json_real(filter->total_time_decoded));
     json_t *nbest_json_arr = json_array();
     for(std::vector<NBestResult>::const_iterator it = full_final_result.nbest_results.begin();
         it != full_final_result.nbest_results.end(); ++it) {
@@ -1081,6 +1084,7 @@ static void gst_kaldinnet2onlinedecoder_threaded_decode_segment(Gstkaldinnet2onl
     if (remaining_wave_part->Dim() > 0) {
       GST_DEBUG_OBJECT(filter, "Submitting remaining wave of size %d", remaining_wave_part->Dim());
       decoder.AcceptWaveform(filter->sample_rate, *remaining_wave_part);
+      filter->total_time_decoded += 1.0 * remaining_wave_part->Dim() / filter->sample_rate;
       while (decoder.NumFramesReceivedApprox() - decoder.NumFramesDecoded() > 100) {
         Sleep(0.1);
       }
@@ -1089,6 +1093,7 @@ static void gst_kaldinnet2onlinedecoder_threaded_decode_segment(Gstkaldinnet2onl
       more_data = filter->audio_source->Read(&wave_part);
       GST_DEBUG_OBJECT(filter, "Submitting wave of size: %d", wave_part.Dim());
       decoder.AcceptWaveform(filter->sample_rate, wave_part);
+      filter->total_time_decoded += 1.0 * wave_part.Dim() / filter->sample_rate;
       if (!more_data) {
         decoder.InputFinished();
         break;
@@ -1129,8 +1134,10 @@ static void gst_kaldinnet2onlinedecoder_threaded_decode_segment(Gstkaldinnet2onl
     }
 
     decoder.Wait();
+
     decoder.GetRemainingWaveform(remaining_wave_part);
     GST_DEBUG_OBJECT(filter, "Remaining waveform size: %d", remaining_wave_part->Dim());
+    filter->total_time_decoded -= 1.0 * remaining_wave_part->Dim() / filter->sample_rate;
 
     if (num_seconds_decoded > 0.1) {
       GST_DEBUG_OBJECT(filter, "Getting lattice..");
@@ -1178,22 +1185,26 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
   BaseFloat num_seconds_decoded = 0.0;
   while (true) {
     more_data = filter->audio_source->Read(&wave_part);
+
     feature_pipeline.AcceptWaveform(filter->sample_rate, wave_part);
     if (!more_data) {
       feature_pipeline.InputFinished();
     }
     decoder.AdvanceDecoding();
+    GST_DEBUG_OBJECT(filter, "%d frames decoded", decoder.NumFramesDecoded());
+    num_seconds_decoded += 1.0 * wave_part.Dim() / filter->sample_rate;
+    filter->total_time_decoded += 1.0 * wave_part.Dim() / filter->sample_rate;
+    GST_DEBUG_OBJECT(filter, "Total amount of audio processed: %f seconds", filter->total_time_decoded);
     if (!more_data) {
       break;
     }
-    GST_DEBUG_OBJECT(filter, "%d frames decoded", decoder.NumFramesDecoded());
     if (filter->do_endpointing
         && (decoder.NumFramesDecoded() > 0)
         && decoder.EndpointDetected(*(filter->endpoint_config))) {
       GST_DEBUG_OBJECT(filter, "Endpoint detected!");
       break;
     }
-    num_seconds_decoded += filter->chunk_length_in_secs;
+
     if ((num_seconds_decoded - last_traceback > traceback_period_secs)
         && (decoder.NumFramesDecoded() > 0)) {
       Lattice lat;
@@ -1202,6 +1213,7 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
       last_traceback += traceback_period_secs;
     }
   }
+
   if (num_seconds_decoded > 0.1) {
     GST_DEBUG_OBJECT(filter, "Getting lattice..");
     decoder.FinalizeDecoding();
@@ -1238,12 +1250,15 @@ static void gst_kaldinnet2onlinedecoder_loop(
 
   bool more_data = true;
   Vector<BaseFloat> remaining_wave_part;
+  filter->segment_start_time = 0.0;
+  filter->total_time_decoded = 0.0;
   while (more_data) {
     if (filter->use_threaded_decoder) {
       gst_kaldinnet2onlinedecoder_threaded_decode_segment(filter, more_data, chunk_length, traceback_period_secs, &remaining_wave_part);
     } else {
       gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(filter, more_data, chunk_length, traceback_period_secs);
     }
+    filter->segment_start_time = filter->total_time_decoded;
   }
 
   GST_DEBUG_OBJECT(filter, "Finished decoding loop");

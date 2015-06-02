@@ -93,6 +93,8 @@ struct _Gstkaldinnet2onlinedecoder {
   bool use_threaded_decoder;
   guint num_nbest;
   OnlineIvectorExtractorAdaptationState *adaptation_state;
+  float segment_start_time;
+  float total_time_decoded;
 
   // The following are needed for optional LM rescoring with a "big" LM
   gchar* lm_fst_name;
