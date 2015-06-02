@@ -17,7 +17,7 @@ CXXFLAGS+=-I$(KALDI_ROOT)/src
 EXTRA_CXXFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
 EXTRA_CXXFLAGS += $(shell pkg-config --cflags glib-2.0)
 
-EXTRA_LDLIBS = -lgstbase-1.0 -lgstcontroller-1.0 -lgstreamer-1.0 -lgobject-2.0 -lgmodule-2.0 -lgthread-2.0 -lglib-2.0
+EXTRA_LDLIBS = -lgstbase-1.0 -lgstcontroller-1.0 -lgstreamer-1.0 -lgobject-2.0 -lgmodule-2.0 -lgthread-2.0 -lglib-2.0 -ljansson
 
 #Kaldi shared libraries required by the GStreamer plugin
 EXTRA_LDLIBS += -L$(FSTROOT)/lib -lkaldi-online2 -lkaldi-lat -lkaldi-decoder -lkaldi-feat -lkaldi-transform \

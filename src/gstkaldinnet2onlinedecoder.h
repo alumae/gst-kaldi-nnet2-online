@@ -91,7 +91,10 @@ struct _Gstkaldinnet2onlinedecoder {
   float chunk_length_in_secs;
   float traceback_period_in_secs;
   bool use_threaded_decoder;
+  guint num_nbest;
   OnlineIvectorExtractorAdaptationState *adaptation_state;
+  float segment_start_time;
+  float total_time_decoded;
 
   // The following are needed for optional LM rescoring with a "big" LM
   gchar* lm_fst_name;
@@ -105,8 +108,7 @@ struct _Gstkaldinnet2onlinedecoderClass {
   GstElementClass parent_class;
   void (*partial_result)(GstElement *element, const gchar *result_str);
   void (*final_result)(GstElement *element, const gchar *result_str);
-  void (*partial_phone_alignment)(GstElement *element, const gchar *result_str);
-  void (*final_phone_alignment)(GstElement *element, const gchar *result_str);
+  void (*full_final_result)(GstElement *element, const gchar *result_str);
 };
 
 GType gst_kaldinnet2onlinedecoder_get_type(void);
