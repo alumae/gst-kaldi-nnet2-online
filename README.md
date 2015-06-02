@@ -7,6 +7,15 @@ DNN acoustic models. The iVectors are adapted to the current audio stream automa
 
 # CHANGELOG
 
+2015-06-02: Added functionality to output structured recognition results,
+that optionally include n-best results, phone alignment information and
+possibly other things (word alignments, sausages, lattices, sentence and
+word confidence scores) in the future.
+The structured results are pushed using the signal `full-final-result`, and
+are formatted using a JSON encoding. See below for a full description.
+Also removed the individual signals that were used for pushing out phone alignments.
+
+
 2015-04-30: Added functionality to change models (FST, acoustic model,
 big language model) after initial initialization. Added functionality to 
 ouput phone aligment information (see properties `do-phone-alignment`
@@ -135,6 +144,180 @@ and in the project
 https://github.com/alumae/kaldi-gstreamer-server, in file kaldigstserver/decoder2.py.
 
 
+# STRUCTURED RESULTS
+
+Below is a sample of JSON-encoded full recognition results, pushed out 
+using the `full-final-result` signal. This sample was generated using
+`do-phone-alignment=true` and `num-nbest=10` (although due to pruning it 
+includes only two n-best hypotheses). Note that the words in the file specified
+by `word-syms` and the phones in the file specified in `phone-syms` must 
+be encoded using UTF-8, otherwise the output won't be valid JSON.
+
+    {
+      "segment-start": 58.57,
+      "status": 0,
+      "result": {
+        "hypotheses": [
+          {
+            "transcript": "we're not ready for the next epidemic",
+            "likelihood": 120.148,
+            "phone-alignment": [
+              {
+                "phone": "SIL",
+                "length": 0.39,
+                "start": 0
+              },
+              {
+                "phone": "W_B",
+                "length": 0.18,
+                "start": 0.39
+              },
+              {
+                "phone": "ER_E",
+                "length": 0.06,
+                "start": 0.57
+              },
+              {
+                "phone": "N_B",
+                "length": 0.06,
+                "start": 0.63
+              },
+              {
+                "phone": "AA_I",
+                "length": 0.19,
+                "start": 0.69
+              },
+              {
+                "phone": "T_E",
+                "length": 0.11,
+                "start": 0.88
+              },
+              {
+                "phone": "R_B",
+                "length": 0.07,
+                "start": 0.99
+              },
+              {
+                "phone": "EH_I",
+                "length": 0.1,
+                "start": 1.06
+              },
+              {
+                "phone": "D_I",
+                "length": 0.05,
+                "start": 1.16
+              },
+              {
+                "phone": "IY_E",
+                "length": 0.22,
+                "start": 1.21
+              },
+              {
+                "phone": "SIL",
+                "length": 0.46,
+                "start": 1.43
+              },
+              {
+                "phone": "F_B",
+                "length": 0.1,
+                "start": 1.89
+              },
+              {
+                "phone": "ER_E",
+                "length": 0.05,
+                "start": 1.99
+              },
+              {
+                "phone": "DH_B",
+                "length": 0.05,
+                "start": 2.04
+              },
+              {
+                "phone": "AH_E",
+                "length": 0.05,
+                "start": 2.09
+              },
+              {
+                "phone": "N_B",
+                "length": 0.06,
+                "start": 2.14
+              },
+              {
+                "phone": "EH_I",
+                "length": 0.11,
+                "start": 2.2
+              },
+              {
+                "phone": "K_I",
+                "length": 0.08,
+                "start": 2.31
+              },
+              {
+                "phone": "S_I",
+                "length": 0.05,
+                "start": 2.39
+              },
+              {
+                "phone": "T_E",
+                "length": 0.07,
+                "start": 2.44
+              },
+              {
+                "phone": "EH_B",
+                "length": 0.08,
+                "start": 2.51
+              },
+              {
+                "phone": "P_I",
+                "length": 0.09,
+                "start": 2.59
+              },
+              {
+                "phone": "AH_I",
+                "length": 0.04,
+                "start": 2.68
+              },
+              {
+                "phone": "D_I",
+                "length": 0.08,
+                "start": 2.72
+              },
+              {
+                "phone": "EH_I",
+                "length": 0.1,
+                "start": 2.8
+              },
+              {
+                "phone": "M_I",
+                "length": 0.08,
+                "start": 2.9
+              },
+              {
+                "phone": "IH_I",
+                "length": 0.08,
+                "start": 2.98
+              },
+              {
+                "phone": "K_E",
+                "length": 0.18,
+                "start": 3.06
+              },
+              {
+                "phone": "SIL",
+                "length": 0.13,
+                "start": 3.24
+              }
+            ]
+          },
+          {
+            "transcript": "were not ready for the next epidemic",
+            "likelihood": 117.297
+          }
+        ]
+      },
+      "segment-length": 3.37,
+      "total-length": 61.94
+    }
 
 # CITING
 
