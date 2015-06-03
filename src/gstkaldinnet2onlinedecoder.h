@@ -35,6 +35,7 @@
 #include "fstext/fstext-lib.h"
 #include "lat/lattice-functions.h"
 #include "lm/const-arpa-lm.h"
+#include "lat/word-align-lattice.h"
 
 namespace kaldi {
 
@@ -73,6 +74,7 @@ struct _Gstkaldinnet2onlinedecoder {
   gchar* fst_rspecifier;
   gchar* word_syms_filename;
   gchar* phone_syms_filename;
+  gchar* word_boundary_info_filename;
 
   SimpleOptionsGst *simple_options;
   OnlineEndpointConfig *endpoint_config;
@@ -86,6 +88,7 @@ struct _Gstkaldinnet2onlinedecoder {
   fst::Fst<fst::StdArc> *decode_fst;
   fst::SymbolTable *word_syms;
   fst::SymbolTable *phone_syms;
+  WordBoundaryInfo *word_boundary_info;
   int sample_rate;
   gboolean decoding;
   float chunk_length_in_secs;

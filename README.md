@@ -7,6 +7,11 @@ DNN acoustic models. The iVectors are adapted to the current audio stream automa
 
 # CHANGELOG
 
+2015-06-03: Full results can now inlude word alignment information for the
+best hypothesis. In order to activate this, set the `word-boundary-file`
+property to point to the `word_boundary.int` file typically found in the
+`data/lang/phones/` subdirectory of a trained system.
+
 2015-06-02: Added functionality to output structured recognition results,
 that optionally include n-best results, phone alignment information and
 possibly other things (word alignments, sausages, lattices, sentence and
@@ -154,168 +159,205 @@ by `word-syms` and the phones in the file specified in `phone-syms` must
 be encoded using UTF-8, otherwise the output won't be valid JSON.
 
     {
-      "segment-start": 58.57,
       "status": 0,
       "result": {
         "hypotheses": [
           {
             "transcript": "we're not ready for the next epidemic",
-            "likelihood": 120.148,
+            "likelihood": 128.174,
             "phone-alignment": [
               {
+                "start": 0,
                 "phone": "SIL",
-                "length": 0.39,
-                "start": 0
+                "length": 0.71
               },
               {
+                "start": 0.71,
                 "phone": "W_B",
-                "length": 0.18,
-                "start": 0.39
+                "length": 0.18
               },
               {
+                "start": 0.89,
                 "phone": "ER_E",
-                "length": 0.06,
-                "start": 0.57
+                "length": 0.06
               },
               {
+                "start": 0.95,
                 "phone": "N_B",
-                "length": 0.06,
-                "start": 0.63
+                "length": 0.06
               },
               {
+                "start": 1.01,
                 "phone": "AA_I",
-                "length": 0.19,
-                "start": 0.69
+                "length": 0.19
               },
               {
+                "start": 1.2,
                 "phone": "T_E",
-                "length": 0.11,
-                "start": 0.88
+                "length": 0.11
               },
               {
+                "start": 1.31,
                 "phone": "R_B",
-                "length": 0.07,
-                "start": 0.99
+                "length": 0.07
               },
               {
+                "start": 1.38,
                 "phone": "EH_I",
-                "length": 0.1,
-                "start": 1.06
+                "length": 0.1
               },
               {
+                "start": 1.48,
                 "phone": "D_I",
-                "length": 0.05,
-                "start": 1.16
+                "length": 0.05
               },
               {
+                "start": 1.53,
                 "phone": "IY_E",
-                "length": 0.22,
-                "start": 1.21
+                "length": 0.22
               },
               {
+                "start": 1.75,
                 "phone": "SIL",
-                "length": 0.46,
-                "start": 1.43
+                "length": 0.46
               },
               {
+                "start": 2.21,
                 "phone": "F_B",
-                "length": 0.1,
-                "start": 1.89
+                "length": 0.1
               },
               {
+                "start": 2.31,
                 "phone": "ER_E",
-                "length": 0.05,
-                "start": 1.99
+                "length": 0.05
               },
               {
+                "start": 2.36,
                 "phone": "DH_B",
-                "length": 0.05,
-                "start": 2.04
+                "length": 0.05
               },
               {
+                "start": 2.41,
                 "phone": "AH_E",
-                "length": 0.05,
-                "start": 2.09
+                "length": 0.05
               },
               {
+                "start": 2.46,
                 "phone": "N_B",
-                "length": 0.06,
-                "start": 2.14
+                "length": 0.06
               },
               {
+                "start": 2.52,
                 "phone": "EH_I",
-                "length": 0.11,
-                "start": 2.2
+                "length": 0.11
               },
               {
+                "start": 2.63,
                 "phone": "K_I",
-                "length": 0.08,
-                "start": 2.31
+                "length": 0.08
               },
               {
+                "start": 2.71,
                 "phone": "S_I",
-                "length": 0.05,
-                "start": 2.39
+                "length": 0.05
               },
               {
+                "start": 2.76,
                 "phone": "T_E",
-                "length": 0.07,
-                "start": 2.44
+                "length": 0.07
               },
               {
+                "start": 2.83,
                 "phone": "EH_B",
-                "length": 0.08,
-                "start": 2.51
+                "length": 0.08
               },
               {
+                "start": 2.91,
                 "phone": "P_I",
-                "length": 0.09,
-                "start": 2.59
+                "length": 0.09
               },
               {
+                "start": 3,
                 "phone": "AH_I",
-                "length": 0.04,
-                "start": 2.68
+                "length": 0.04
               },
               {
+                "start": 3.04,
                 "phone": "D_I",
-                "length": 0.08,
-                "start": 2.72
+                "length": 0.08
               },
               {
+                "start": 3.12,
                 "phone": "EH_I",
-                "length": 0.1,
-                "start": 2.8
+                "length": 0.1
               },
               {
+                "start": 3.22,
                 "phone": "M_I",
-                "length": 0.08,
-                "start": 2.9
+                "length": 0.08
               },
               {
+                "start": 3.3,
                 "phone": "IH_I",
-                "length": 0.08,
-                "start": 2.98
+                "length": 0.08
               },
               {
+                "start": 3.38,
                 "phone": "K_E",
-                "length": 0.18,
-                "start": 3.06
+                "length": 0.18
               },
               {
+                "start": 3.56,
                 "phone": "SIL",
-                "length": 0.13,
-                "start": 3.24
+                "length": 0.13
+              }
+            ],
+            "word-alignment": [
+              {
+                "word": "we're",
+                "start": 0.71,
+                "length": 0.24
+              },
+              {
+                "word": "not",
+                "start": 0.95,
+                "length": 0.36
+              },
+              {
+                "word": "ready",
+                "start": 1.31,
+                "length": 0.44
+              },
+              {
+                "word": "for",
+                "start": 2.21,
+                "length": 0.15
+              },
+              {
+                "word": "the",
+                "start": 2.36,
+                "length": 0.1
+              },
+              {
+                "word": "next",
+                "start": 2.46,
+                "length": 0.37
+              },
+              {
+                "word": "epidemic",
+                "start": 2.83,
+                "length": 0.73
               }
             ]
           },
           {
             "transcript": "were not ready for the next epidemic",
-            "likelihood": 117.297
+            "likelihood": 125.323
           }
         ]
       },
-      "segment-length": 3.37,
+      "segment-start": 58.25,
+      "segment-length": 3.69,
       "total-length": 61.94
     }
 
