@@ -475,9 +475,11 @@ static void gst_kaldinnet2onlinedecoder_init(
   filter->feature_config = new OnlineNnet2FeaturePipelineConfig();
   filter->nnet2_decoding_config = new OnlineNnet2DecodingConfig();
   filter->nnet2_decoding_threaded_config = new OnlineNnet2DecodingThreadedConfig();
+  filter->silence_weighting_config = new OnlineSilenceWeightingConfig();
 
   filter->endpoint_config->Register(filter->simple_options);
   filter->feature_config->Register(filter->simple_options);
+  filter->silence_weighting_config->Register(filter->simple_options);
 
   // since the properties of the decoders overlap, they need to be set in the correct order
   // we'll redo this if the use-threaded-decoder property is changed
@@ -1282,8 +1284,11 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
                                       *(filter->trans_model), *(filter->nnet),
                                       *(filter->decode_fst),
                                       &feature_pipeline);
+  OnlineSilenceWeighting silence_weighting(*(filter->trans_model),
+          *(filter->silence_weighting_config));
 
   Vector<BaseFloat> wave_part = Vector<BaseFloat>(chunk_length);
+  std::vector<std::pair<int32, BaseFloat> > delta_weights;
   GST_DEBUG_OBJECT(filter, "Reading audio in %d sample chunks...",
                    wave_part.Dim());
   BaseFloat last_traceback = 0.0;
@@ -1295,6 +1300,13 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
     if (!more_data) {
       feature_pipeline.InputFinished();
     }
+
+    if (silence_weighting.Active()) {
+      silence_weighting.ComputeCurrentTraceback(decoder.Decoder());
+      silence_weighting.GetDeltaWeights(feature_pipeline.NumFramesReady(), &delta_weights);
+      feature_pipeline.UpdateFrameWeights(delta_weights);
+    }
+
     decoder.AdvanceDecoding();
     GST_DEBUG_OBJECT(filter, "%d frames decoded", decoder.NumFramesDecoded());
     num_seconds_decoded += 1.0 * wave_part.Dim() / filter->sample_rate;
@@ -1853,6 +1865,7 @@ static void gst_kaldinnet2onlinedecoder_finalize(GObject * object) {
   delete filter->endpoint_config;
   delete filter->feature_config;
   delete filter->nnet2_decoding_config;
+  delete filter->silence_weighting_config;
   delete filter->simple_options;
   if (filter->feature_info) {
     delete filter->feature_info;

@@ -81,6 +81,7 @@ struct _Gstkaldinnet2onlinedecoder {
   OnlineNnet2FeaturePipelineConfig *feature_config;
   OnlineNnet2DecodingThreadedConfig *nnet2_decoding_threaded_config;
   OnlineNnet2DecodingConfig *nnet2_decoding_config;
+  OnlineSilenceWeightingConfig *silence_weighting_config;
 
   OnlineNnet2FeaturePipelineInfo *feature_info;
   TransitionModel *trans_model;
