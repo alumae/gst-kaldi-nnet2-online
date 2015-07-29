@@ -91,6 +91,7 @@ enum {
   PROP_USE_THREADED_DECODER,
   PROP_NUM_NBEST,
   PROP_WORD_BOUNDARY_FILE,
+  PROP_MIN_WORDS_FOR_IVECTOR,
   PROP_LAST
 };
 
@@ -104,6 +105,7 @@ enum {
 #define DEFAULT_TRACEBACK_PERIOD_IN_SECS  0.5
 #define DEAFULT_USE_THREADED_DECODER false
 #define DEFAULT_NUM_NBEST 1
+#define DEFAULT_MIN_WORDS_FOR_IVECTOR 2
 
 /**
  * Some structs used for storing recognition results
@@ -380,6 +382,17 @@ static void gst_kaldinnet2onlinedecoder_class_init(
           DEFAULT_NUM_NBEST,
           (GParamFlags) G_PARAM_READWRITE));
 
+  g_object_class_install_property(
+      gobject_class,
+      PROP_MIN_WORDS_FOR_IVECTOR,
+      g_param_spec_uint(
+          "min-words-for-ivector", "threshold for updating ivector (adaptation state)",
+          "Minimal number of words in the first transcription for triggering update of the adaptation state",
+          0,
+          10000,
+          DEFAULT_MIN_WORDS_FOR_IVECTOR,
+          (GParamFlags) G_PARAM_READWRITE));
+
   gst_kaldinnet2onlinedecoder_signals[PARTIAL_RESULT_SIGNAL] = g_signal_new(
       "partial-result", G_TYPE_FROM_CLASS(klass), G_SIGNAL_RUN_LAST,
       G_STRUCT_OFFSET(Gstkaldinnet2onlinedecoderClass, partial_result),
@@ -489,6 +502,7 @@ static void gst_kaldinnet2onlinedecoder_init(
 
   filter->use_threaded_decoder = false;
   filter->num_nbest = DEFAULT_NUM_NBEST;
+  filter->min_words_for_ivector = DEFAULT_MIN_WORDS_FOR_IVECTOR;
 
   // init properties from various Kaldi Opts
   GstElementClass * klass = GST_ELEMENT_GET_CLASS(filter);
@@ -660,6 +674,9 @@ static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
     case PROP_NUM_NBEST:
       filter->num_nbest = g_value_get_uint(value);
       break;
+    case PROP_MIN_WORDS_FOR_IVECTOR:
+      filter->min_words_for_ivector = g_value_get_uint(value);
+      break;
     default:
       if (prop_id >= PROP_LAST) {
         const gchar* name = g_param_spec_get_name(pspec);
@@ -768,6 +785,9 @@ static void gst_kaldinnet2onlinedecoder_get_property(GObject * object,
       break;
     case PROP_NUM_NBEST:
       g_value_set_uint(value, filter->num_nbest);
+      break;
+    case PROP_MIN_WORDS_FOR_IVECTOR:
+      g_value_set_uint(value, filter->min_words_for_ivector);
       break;
     default:
       if (prop_id >= PROP_LAST) {
@@ -1241,8 +1261,8 @@ static void gst_kaldinnet2onlinedecoder_threaded_decode_segment(Gstkaldinnet2onl
 
       guint num_words = 0;
       gst_kaldinnet2onlinedecoder_final_result(filter, clat, &num_words);
-      if (num_words > 1) {
-        // Only update adaptation state if the utterance contained more than one word
+      if (num_words >= filter->min_words_for_ivector) {
+        // Only update adaptation state if the utterance contained enough words
         decoder.GetAdaptationState(filter->adaptation_state);
       }
     } else {
@@ -1316,8 +1336,8 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
 
     guint num_words = 0;
     gst_kaldinnet2onlinedecoder_final_result(filter, clat, &num_words);
-    if (num_words > 1) {
-      // Only update adaptation state if the utterance contained more than one word
+    if (num_words >= filter->min_words_for_ivector) {
+      // Only update adaptation state if the utterance contained enough words
       feature_pipeline.GetAdaptationState(filter->adaptation_state);
     }
   } else {
