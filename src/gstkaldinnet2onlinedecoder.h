@@ -81,6 +81,7 @@ struct _Gstkaldinnet2onlinedecoder {
   OnlineNnet2FeaturePipelineConfig *feature_config;
   OnlineNnet2DecodingThreadedConfig *nnet2_decoding_threaded_config;
   OnlineNnet2DecodingConfig *nnet2_decoding_config;
+  OnlineSilenceWeightingConfig *silence_weighting_config;
 
   OnlineNnet2FeaturePipelineInfo *feature_info;
   TransitionModel *trans_model;
@@ -95,6 +96,7 @@ struct _Gstkaldinnet2onlinedecoder {
   float traceback_period_in_secs;
   bool use_threaded_decoder;
   guint num_nbest;
+  guint min_words_for_ivector;
   OnlineIvectorExtractorAdaptationState *adaptation_state;
   float segment_start_time;
   float total_time_decoded;
