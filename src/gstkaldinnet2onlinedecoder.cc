@@ -664,7 +664,7 @@ static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
             filter->adaptation_state = new OnlineIvectorExtractorAdaptationState(
                 filter->feature_info->ivector_extractor_info);
           }
-          delete adaptation_state_string;
+		  g_free(adaptation_state_string);
         } else {
           GST_DEBUG_OBJECT(filter, "Resetting adaptation state");
           delete filter->adaptation_state;
