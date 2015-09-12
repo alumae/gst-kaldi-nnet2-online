@@ -66,7 +66,7 @@ void GstBufferSource::SetEnded(bool ended) {
 bool GstBufferSource::Read(Vector<BaseFloat> *data) {
   uint32 nsamples_req = data->Dim();  // (16bit) samples requested
   uint32 kDim = data->Dim();
-  int16 buf[kDim];
+  int16 *buf = new int16[kDim];
   uint32 nbytes_transferred = 0;
 
   while ((nbytes_transferred  < nsamples_req * sizeof(SampleType))) {
@@ -106,6 +106,8 @@ bool GstBufferSource::Read(Vector<BaseFloat> *data) {
   for (int i = 0; i < nsamples_received ; ++i) {
     (*data)(i) = static_cast<BaseFloat>(buf[i]);
   }
+
+  delete buf;
 
   if (nsamples_received < nsamples_req) {
     data->Resize(nsamples_received, kCopyData);
