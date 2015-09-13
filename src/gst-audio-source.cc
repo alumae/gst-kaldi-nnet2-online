@@ -107,7 +107,7 @@ bool GstBufferSource::Read(Vector<BaseFloat> *data) {
     (*data)(i) = static_cast<BaseFloat>(buf[i]);
   }
 
-  delete buf;
+  delete[] buf;
 
   if (nsamples_received < nsamples_req) {
     data->Resize(nsamples_received, kCopyData);
