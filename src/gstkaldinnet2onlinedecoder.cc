@@ -58,6 +58,11 @@
 
 #include <jansson.h>
 
+/* JSON_REAL_PRECISION is a macro from libjansson 2.7. Ubuntu 12.04 only has 2.2.1-1 */
+#ifndef JSON_REAL_PRECISION
+#define JSON_REAL_PRECISION(n)  (((n) & 0x1F) << 11)
+#endif // JSON_REAL_PRECISION
+
 
 namespace kaldi {
 
@@ -991,7 +996,7 @@ static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
 
   json_object_set_new( root, "result", result_json_object);
 
-  json_object_set_new( result_json_object, "final", json_boolean(true));
+  json_object_set_new( result_json_object, "final", json_true());
 
   if (full_final_result.nbest_results.size() > 0) {
     BaseFloat frame_shift = filter->feature_info->FrameShiftInSeconds();
@@ -1664,7 +1669,7 @@ gst_kaldinnet2onlinedecoder_load_fst(Gstkaldinnet2onlinedecoder * filter,
       try {
         GST_DEBUG_OBJECT(filter, "Loading decoder graph: %s", str);
 
-        fst::Fst<fst::StdArc> * new_decode_fst = fst::ReadFstKaldi(str);
+        fst::Fst<fst::StdArc> * new_decode_fst = ReadDecodeGraph(str);
 
         // Delete objects if needed
         if (filter->decode_fst) {

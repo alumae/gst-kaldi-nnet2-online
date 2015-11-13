@@ -6,6 +6,9 @@ DNN acoustic models. The iVectors are adapted to the current audio stream automa
 
 
 # CHANGELOG
+2015-11-05: Minor changes for compatibility with Ubuntu 12.04 (and its older version
+of Jansson). Also use `ReadDecodeGraph` to read fst file, supporting the use of
+const (mapped) fsts.
 
 2015-06-03: Full results can now inlude word alignment information for the
 best hypothesis. In order to activate this, set the `word-boundary-file`
@@ -65,7 +68,7 @@ Kaldi revision 4582 or later.
 
 # HOW TO COMPILE IT
 
-The following works on Linux (I'm using Debian 'testing').
+The following works on Linux (I'm using Debian 'testing'; Ubuntu 12.04 also works).
 
 Compile Kaldi trunk, using the shared configuration:
 In Kaldi's 'src' directory:
@@ -77,6 +80,11 @@ In Kaldi's 'src' directory:
 Install gstreamer-1.0:
 
     sudo apt-get install gstreamer1.0-plugins-bad  gstreamer1.0-plugins-base gstreamer1.0-plugins-good  gstreamer1.0-pulseaudio  gstreamer1.0-plugins-ugly  gstreamer1.0-tools libgstreamer1.0-dev
+
+On Ubuntu 12.04, you'll need to use a backport ppa to get version 1.0 of gstreamer, before doing the sudo apt-get install above:
+
+    sudo add-apt-repository ppa:gstreamer-developers/ppa
+    sudo apt-get update
 
 Install the Jansson library development package (version 2.7 or newer), used for encoding results as JSON:
 
