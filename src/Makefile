@@ -16,6 +16,7 @@ CXXFLAGS += -I$(KALDI_ROOT)/src
 
 EXTRA_CXXFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
 EXTRA_CXXFLAGS += $(shell pkg-config --cflags glib-2.0)
+EXTRA_CXXFLAGS += $(shell pkg-config --cflags jansson)
 
 EXTRA_LDLIBS += -lgstbase-1.0 -lgstcontroller-1.0 -lgobject-2.0 -lgmodule-2.0 -lgthread-2.0
 EXTRA_LDLIBS += $(shell pkg-config --libs gstreamer-1.0)
