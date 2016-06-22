@@ -514,6 +514,7 @@ static void gst_kaldinnet2onlinedecoder_init(
   // init properties from various Kaldi Opts
   GstElementClass * klass = GST_ELEMENT_GET_CLASS(filter);
 
+  std::set<std::string> seen_options;
   std::vector<std::pair<std::string, SimpleOptions::OptionInfo> > option_info_list;
   option_info_list = filter->simple_options->GetOptionInfoList();
   int32 i = 0;
@@ -522,6 +523,13 @@ static void gst_kaldinnet2onlinedecoder_init(
     std::pair<std::string, SimpleOptions::OptionInfo> result = (*dx);
     SimpleOptions::OptionInfo option_info = result.second;
     std::string name = result.first;
+
+    // GetOptionInfoList returns duplicate options
+    if (seen_options.find(name) != seen_options.end())
+      continue;
+
+    seen_options.insert(name);
+
     switch (option_info.type) {
       case SimpleOptions::kBool:
         filter->simple_options->GetOption(name, &tmp_bool);
