@@ -6,6 +6,8 @@ DNN acoustic models. The iVectors are adapted to the current audio stream automa
 
 
 # CHANGELOG
+2016-06-23: Got rid of the GStreamer property warnings at startup, thanks to @MathieuDuponchelle.
+
 2015-11-05: Minor changes for compatibility with Ubuntu 12.04 (and its older version
 of Jansson). Also use `ReadDecodeGraph` to read fst file, supporting the use of
 const (mapped) fsts.
