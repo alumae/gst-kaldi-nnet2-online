@@ -105,19 +105,7 @@ Test if GStreamer can access the plugin:
 
     GST_PLUGIN_PATH=. gst-inspect-1.0 kaldinnet2onlinedecoder
 
-First, this prints a lot of warnings like:
-
-    (gst-inspect-1.0:10810): GLib-GObject-WARNING **: Attempt to add property Gstkaldinnet2onlinedecoder::endpoint-silence-phones after class was initialised
-
-    (gst-inspect-1.0:10810): GLib-GObject-WARNING **: Attempt to add property Gstkaldinnet2onlinedecoder::endpoint-rule1-must-contain-nonsilence after class was initialised
-
-    (gst-inspect-1.0:10810): GLib-GObject-WARNING **: Attempt to add property Gstkaldinnet2onlinedecoder::endpoint-rule1-min-trailing-silence after class was initialised
-
-This is because the properties of the plugin are initialized dynamically from Kaldi components
-and the Kaldi components are created after plugin initialization. It doesn't seem
-to harm any functinality.
-
-The second part of the `gst-inspect-1.0` output should list all plugin properties with their default values:
+The output should list all plugin properties with their default values:
 
     Factory Details:
       Rank                     none (0)
