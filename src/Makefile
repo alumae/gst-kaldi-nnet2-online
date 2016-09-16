@@ -28,14 +28,13 @@ EXTRA_LDLIBS += -L$(FSTROOT)/lib -lkaldi-online2 -lkaldi-lat -lkaldi-decoder -lk
  -lkaldi-gmm -lkaldi-hmm \
  -lkaldi-tree -lkaldi-matrix  -lkaldi-util -lkaldi-base -lkaldi-thread -lkaldi-lm -lfstscript -lkaldi-nnet2 -lkaldi-cudamatrix -lkaldi-ivector -lkaldi-fstext
 
-OBJFILES = gstkaldinnet2onlinedecoder.o simple-options-gst.o gst-audio-source.o kaldimarshal.o
+OBJFILES = simple-options-gst.o gst-audio-source.o kaldimarshal.o
+LIBNAMES=gstkaldinnet2onlinedecoder gstkaldinnet3onlinedecoder
+OBJFILES += $(addsuffix .o,$(LIBNAMES))
+LIBFILES=$(addsuffix .so,$(addprefix lib,$(LIBNAMES)))
+BINFILES= $(LIBFILES)
 
-LIBNAME=gstkaldionline2
-
-LIBFILE = lib$(LIBNAME).so
-BINFILES= $(LIBFILE)
-
-all: $(LIBFILE)
+all: $(LIBFILES)
 
 # MKL libs required when linked via shared library
 ifdef MKLROOT
@@ -47,16 +46,18 @@ endif
 CXX_VERSION=$(shell $(CXX) --version 2>/dev/null)
 ifneq (,$(findstring clang, $(CXX_VERSION)))
     # clang++ linker
-    EXTRA_LDLIBS +=  -Wl,-install_name,$(LIBFILE) -Wl,-rpath,$(KALDILIBDIR)
+    EXTRA_LDLIBS +=-Wl,-rpath,$(KALDILIBDIR)
+    EXTRA_LDLIB_P=-Wl,-install_name,
 else
     # g++ linker
-    EXTRA_LDLIBS +=  -Wl,-soname=$(LIBFILE) -Wl,--no-as-needed -Wl,-rpath=$(KALDILIBDIR) -lrt -pthread
+    EXTRA_LDLIBS +=-Wl,--no-as-needed -Wl,-rpath=$(KALDILIBDIR) -lrt -pthread
+    EXTRA_LDLIB_P=-Wl,-soname=
 endif
 
 
-$(LIBFILE): $(OBJFILES)
-	$(CXX) -shared -DPIC -o $(LIBFILE) -L$(KALDILIBDIR) $(EXTRA_LDLIBS) $(LDLIBS) $(LDFLAGS) \
-	  $(OBJFILES)
+$(LIBFILES): $(filter-out %.so,$(OBJFILESa))
+	$(CXX) -shared -DPIC -o $@ -L$(KALDILIBDIR) $(EXTRA_LDLIB_P)$@ $(EXTRA_LDLIBS) $(LDLIBS) $(LDFLAGS) \
+	  $^
  
 kaldimarshal.h: kaldimarshal.list
 	glib-genmarshal --header --prefix=kaldi_marshal kaldimarshal.list > kaldimarshal.h.tmp
