@@ -28,8 +28,9 @@ EXTRA_LDLIBS += -L$(FSTROOT)/lib -lkaldi-online2 -lkaldi-lat -lkaldi-decoder -lk
  -lkaldi-gmm -lkaldi-hmm \
  -lkaldi-tree -lkaldi-matrix  -lkaldi-util -lkaldi-base -lkaldi-thread -lkaldi-lm -lfstscript -lkaldi-nnet2 -lkaldi-cudamatrix -lkaldi-ivector -lkaldi-fstext
 
-OBJFILES = simple-options-gst.o gst-audio-source.o kaldimarshal.o
+COMMON_OBJFILES = simple-options-gst.o gst-audio-source.o kaldimarshal.o
 LIBNAMES=gstkaldinnet2onlinedecoder gstkaldinnet3onlinedecoder
+OBJFILES = $(COMMON_OBJFILES)
 OBJFILES += $(addsuffix .o,$(LIBNAMES))
 LIBFILES=$(addsuffix .so,$(addprefix lib,$(LIBNAMES)))
 BINFILES= $(LIBFILES)
@@ -55,10 +56,14 @@ else
 endif
 
 
-$(LIBFILES): $(filter-out %.so,$(OBJFILESa))
+libgstkaldinnet2onlinedecoder.so: $(COMMON_OBJFILES) gstkaldinnet2onlinedecoder.o
 	$(CXX) -shared -DPIC -o $@ -L$(KALDILIBDIR) $(EXTRA_LDLIB_P)$@ $(EXTRA_LDLIBS) $(LDLIBS) $(LDFLAGS) \
 	  $^
  
+libgstkaldinnet3onlinedecoder.so: $(COMMON_OBJFILES) gstkaldinnet3onlinedecoder.o
+	$(CXX) -shared -DPIC -o $@ -L$(KALDILIBDIR) $(EXTRA_LDLIB_P)$@ $(EXTRA_LDLIBS) $(LDLIBS) $(LDFLAGS) \
+	  $^
+
 kaldimarshal.h: kaldimarshal.list
 	glib-genmarshal --header --prefix=kaldi_marshal kaldimarshal.list > kaldimarshal.h.tmp
 	mv kaldimarshal.h.tmp kaldimarshal.h
