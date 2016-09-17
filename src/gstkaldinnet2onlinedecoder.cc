@@ -110,7 +110,7 @@ enum {
 #define DEFAULT_LMWT_SCALE	1.0
 #define DEFAULT_CHUNK_LENGTH_IN_SECS  0.05
 #define DEFAULT_TRACEBACK_PERIOD_IN_SECS  0.5
-#define DEAFULT_USE_THREADED_DECODER false
+#define DEFAULT_USE_THREADED_DECODER false
 #define DEFAULT_NUM_NBEST 1
 #define DEFAULT_MIN_WORDS_FOR_IVECTOR 2
 
@@ -246,10 +246,10 @@ static void gst_kaldinnet2onlinedecoder_class_init(
       gobject_class,
       PROP_NNET_MODE,
       g_param_spec_uint(
-          "nnet-decoding-mode", "nnet mode",
-          "0 for nnet2, 1 for nnet3",
-          0,
-          1,
+          "nnet-mode", "nnet mode",
+          "2 for nnet2, 3 for nnet3",
+          2,
+          3,
           DEFAULT_NNET_MODE,
           (GParamFlags) G_PARAM_READWRITE));
   g_object_class_install_property(
@@ -385,7 +385,7 @@ static void gst_kaldinnet2onlinedecoder_class_init(
           "use-threaded-decoder",
           "Use a decoder that does feature calculation and decoding in separate threads (NB! must be set before other properties)",
           "Whether to use a threaded decoder (NB! must be set before other properties)",
-          DEAFULT_USE_THREADED_DECODER,
+          DEFAULT_USE_THREADED_DECODER,
           (GParamFlags) G_PARAM_READWRITE));
 
   g_object_class_install_property(
@@ -478,6 +478,7 @@ static void gst_kaldinnet2onlinedecoder_init(
   gst_pad_use_fixed_caps(filter->srcpad);
   gst_element_add_pad(GST_ELEMENT(filter), filter->srcpad);
 
+  filter->nnet_mode = DEFAULT_NNET_MODE;
   filter->silent = FALSE;
   filter->model_rspecifier = g_strdup(DEFAULT_MODEL);
   filter->fst_rspecifier = g_strdup(DEFAULT_FST);
@@ -493,7 +494,6 @@ static void gst_kaldinnet2onlinedecoder_init(
   filter->feature_config = new OnlineNnet2FeaturePipelineConfig();
   filter->nnet2_decoding_config = new OnlineNnet2DecodingConfig();
   filter->nnet2_decoding_threaded_config = new OnlineNnet2DecodingThreadedConfig();
-  // for nnet3
   filter->nnet3_decoding_config = new OnlineNnet3DecodingConfig();
   filter->silence_weighting_config = new OnlineSilenceWeightingConfig();
 
@@ -503,12 +503,24 @@ static void gst_kaldinnet2onlinedecoder_init(
 
   // since the properties of the decoders overlap, they need to be set in the correct order
   // we'll redo this if the use-threaded-decoder property is changed
-  if (DEAFULT_USE_THREADED_DECODER) {
-    filter->nnet2_decoding_config->Register(filter->simple_options);
-    filter->nnet2_decoding_threaded_config->Register(filter->simple_options);
+  if (DEFAULT_NNET_MODE == NNET2) {
+    filter->nnet3_decoding_config->Register(filter->simple_options);
+    if (DEFAULT_USE_THREADED_DECODER) {
+      filter->nnet2_decoding_config->Register(filter->simple_options);
+      filter->nnet2_decoding_threaded_config->Register(filter->simple_options);
+    } else {
+      filter->nnet2_decoding_threaded_config->Register(filter->simple_options);
+      filter->nnet2_decoding_config->Register(filter->simple_options);
+    }
   } else {
-    filter->nnet2_decoding_threaded_config->Register(filter->simple_options);
-    filter->nnet2_decoding_config->Register(filter->simple_options);
+    if (DEFAULT_USE_THREADED_DECODER) {
+      filter->nnet2_decoding_config->Register(filter->simple_options);
+      filter->nnet2_decoding_threaded_config->Register(filter->simple_options);
+    } else {
+      filter->nnet2_decoding_threaded_config->Register(filter->simple_options);
+      filter->nnet2_decoding_config->Register(filter->simple_options);
+    }
+    filter->nnet3_decoding_config->Register(filter->simple_options);
   }
 
   // will be set later
@@ -612,6 +624,19 @@ static void gst_kaldinnet2onlinedecoder_init(
   }
 }
 
+void register_decoding_config(Gstkaldinnet2onlinedecoder *filter) {
+  if (filter->nnet_mode == NNET2) {
+    if (filter->use_threaded_decoder) {
+      filter->nnet2_decoding_threaded_config->Register(filter->simple_options);
+    } else {
+      filter->nnet2_decoding_config->Register(filter->simple_options);
+    }
+  }
+  else {
+    filter->nnet3_decoding_config->Register(filter->simple_options);
+  }
+}
+
 static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
                                                      guint prop_id,
                                                      const GValue * value,
@@ -623,7 +648,8 @@ static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
 
   switch (prop_id) {
     case PROP_NNET_MODE:
-      filter->mode = g_value_get_uint(value);
+      filter->nnet_mode = g_value_get_uint(value);
+      register_decoding_config(filter);
       break;
     case PROP_SILENT:
       filter->silent = g_value_get_boolean(value);
@@ -669,11 +695,7 @@ static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
       break;
     case PROP_USE_THREADED_DECODER:
       filter->use_threaded_decoder = g_value_get_boolean(value);
-      if (filter->use_threaded_decoder) {
-        filter->nnet2_decoding_threaded_config->Register(filter->simple_options);
-      } else {
-        filter->nnet2_decoding_config->Register(filter->simple_options);
-      }
+      register_decoding_config(filter);
       break;
     case PROP_ADAPTATION_STATE:
       {
@@ -763,7 +785,7 @@ static void gst_kaldinnet2onlinedecoder_get_property(GObject * object,
 
   switch (prop_id) {
     case PROP_NNET_MODE:
-      g_value_set_uint(value, filter->mode);
+      g_value_set_uint(value, filter->nnet_mode);
       break;
     case PROP_SILENT:
       g_value_set_boolean(value, filter->silent);
@@ -931,7 +953,7 @@ static void gst_kaldinnet2onlinedecoder_scale_lattice(
         Gstkaldinnet2onlinedecoder * filter, CompactLattice &clat) {
   if (filter->inverse_scale) {
     BaseFloat inv_acoustic_scale = 1.0;
-    if (filter->mode == NNET2) {
+    if (filter->nnet_mode == NNET2) {
       if (filter->use_threaded_decoder) {
         inv_acoustic_scale = 1.0 / filter->
             nnet2_decoding_threaded_config->acoustic_scale;
@@ -1495,7 +1517,7 @@ static void gst_kaldinnet2onlinedecoder_loop(
   filter->segment_start_time = 0.0;
   filter->total_time_decoded = 0.0;
   while (more_data) {
-    if (filter->mode == NNET2) {
+    if (filter->nnet_mode == NNET2) {
       if (filter->use_threaded_decoder) {
         gst_kaldinnet2onlinedecoder_threaded_decode_segment(filter, more_data, chunk_length, traceback_period_secs, &remaining_wave_part);
       } else {
@@ -1769,8 +1791,7 @@ gst_kaldinnet2onlinedecoder_load_model(Gstkaldinnet2onlinedecoder * filter,
         bool binary;
         Input ki(str, &binary);
         filter->trans_model->Read(ki.Stream(), binary);
-        // for nnet3
-        if (filter->mode == NNET2) {
+        if (filter->nnet_mode == NNET2) {
           filter->amNnet2->Read(ki.Stream(), binary);
         }
         else {

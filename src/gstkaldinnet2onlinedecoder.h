@@ -59,18 +59,17 @@ G_BEGIN_DECLS
 typedef struct _Gstkaldinnet2onlinedecoder Gstkaldinnet2onlinedecoder;
 typedef struct _Gstkaldinnet2onlinedecoderClass Gstkaldinnet2onlinedecoderClass;
 
-#define NNET2  0
-#define NNET3  1
+#define NNET2  2
+#define NNET3  3
 
 struct _Gstkaldinnet2onlinedecoder {
-  guint mode;
-
   GstElement element;
 
   GstPad *sinkpad, *srcpad;
 
   GstCaps *sink_caps;
 
+  guint nnet_mode;
   gboolean silent;
   gboolean do_endpointing;
   gboolean inverse_scale;
