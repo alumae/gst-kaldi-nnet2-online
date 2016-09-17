@@ -29,6 +29,9 @@
 #include "online2/online-nnet2-decoding-threaded.h"
 #include "online2/online-nnet2-decoding.h"
 
+// support for nnet3
+#include "online2/online-nnet3-decoding.h"
+
 #include "online2/onlinebin-util.h"
 #include "online2/online-timing.h"
 #include "online2/online-endpoint.h"
@@ -56,7 +59,12 @@ G_BEGIN_DECLS
 typedef struct _Gstkaldinnet2onlinedecoder Gstkaldinnet2onlinedecoder;
 typedef struct _Gstkaldinnet2onlinedecoderClass Gstkaldinnet2onlinedecoderClass;
 
+#define NNET2  0
+#define NNET3  1
+
 struct _Gstkaldinnet2onlinedecoder {
+  guint mode;
+
   GstElement element;
 
   GstPad *sinkpad, *srcpad;
@@ -81,11 +89,14 @@ struct _Gstkaldinnet2onlinedecoder {
   OnlineNnet2FeaturePipelineConfig *feature_config;
   OnlineNnet2DecodingThreadedConfig *nnet2_decoding_threaded_config;
   OnlineNnet2DecodingConfig *nnet2_decoding_config;
+  // support for nnet3
+  OnlineNnet3DecodingConfig *nnet3_decoding_config;
   OnlineSilenceWeightingConfig *silence_weighting_config;
 
   OnlineNnet2FeaturePipelineInfo *feature_info;
   TransitionModel *trans_model;
-  nnet2::AmNnet *nnet;
+  nnet2::AmNnet *amNnet2;
+  nnet3::AmNnetSimple *amNnet3;
   fst::Fst<fst::StdArc> *decode_fst;
   fst::SymbolTable *word_syms;
   fst::SymbolTable *phone_syms;
