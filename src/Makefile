@@ -39,7 +39,7 @@ all: $(LIBFILE)
 
 # MKL libs required when linked via shared library
 ifdef MKLROOT
-EXTRA_LDLIBS+=-lmkl_def
+EXTRA_LDLIBS+=-lmkl_rt -lmkl_def
 endif
 
 # Library so name and rpath
