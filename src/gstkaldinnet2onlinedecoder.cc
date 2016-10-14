@@ -458,8 +458,8 @@ static void gst_kaldinnet2onlinedecoder_init(
   std::string tmp_string;
 
   filter->trans_model = NULL;
-  filter->amNnet2 = NULL;
-  filter->amNnet3 = NULL;
+  filter->am_nnet2 = NULL;
+  filter->am_nnet3 = NULL;
   filter->decode_fst = NULL;
 
   filter->sinkpad = NULL;
@@ -1241,7 +1241,7 @@ static void gst_kaldinnet2onlinedecoder_threaded_decode_segment(Gstkaldinnet2onl
                                                       BaseFloat traceback_period_secs,
                                                       Vector<BaseFloat> *remaining_wave_part) {
     SingleUtteranceNnet2DecoderThreaded decoder(*(filter->nnet2_decoding_threaded_config),
-                                        *(filter->trans_model), *(filter->amNnet2),
+                                        *(filter->trans_model), *(filter->am_nnet2),
                                         *(filter->decode_fst),
                                         *(filter->feature_info),
                                         *(filter->adaptation_state));
@@ -1344,7 +1344,7 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
   OnlineNnet2FeaturePipeline feature_pipeline(*(filter->feature_info));
   feature_pipeline.SetAdaptationState(*(filter->adaptation_state));
   SingleUtteranceNnet2Decoder decoder(*(filter->nnet2_decoding_config),
-                                      *(filter->trans_model), *(filter->amNnet2),
+                                      *(filter->trans_model), *(filter->am_nnet2),
                                       *(filter->decode_fst),
                                       &feature_pipeline);
   OnlineSilenceWeighting silence_weighting(*(filter->trans_model),
@@ -1429,7 +1429,7 @@ static void gst_kaldinnet2onlinedecoder_nnet3_unthreaded_decode_segment(Gstkaldi
   OnlineNnet2FeaturePipeline feature_pipeline(*(filter->feature_info));
   feature_pipeline.SetAdaptationState(*(filter->adaptation_state));
   SingleUtteranceNnet3Decoder decoder(*(filter->nnet3_decoding_config),
-                                      *(filter->trans_model), *(filter->amNnet3),
+                                      *(filter->trans_model), *(filter->am_nnet3),
                                       *(filter->decode_fst),
                                       &feature_pipeline);
   OnlineSilenceWeighting silence_weighting(*(filter->trans_model),
@@ -1779,12 +1779,12 @@ gst_kaldinnet2onlinedecoder_load_model(Gstkaldinnet2onlinedecoder * filter,
         filter->trans_model = new TransitionModel();
       }
 
-      if (!filter->amNnet2) {
-        filter->amNnet2 = new nnet2::AmNnet();
+      if (!filter->am_nnet2) {
+        filter->am_nnet2 = new nnet2::AmNnet();
       }
 
-      if (!filter->amNnet3) {
-        filter->amNnet3 = new nnet3::AmNnetSimple();
+      if (!filter->am_nnet3) {
+        filter->am_nnet3 = new nnet3::AmNnetSimple();
       }
 
       // Make the objects read the new models
@@ -1793,10 +1793,10 @@ gst_kaldinnet2onlinedecoder_load_model(Gstkaldinnet2onlinedecoder * filter,
         Input ki(str, &binary);
         filter->trans_model->Read(ki.Stream(), binary);
         if (filter->nnet_mode == NNET2) {
-          filter->amNnet2->Read(ki.Stream(), binary);
+          filter->am_nnet2->Read(ki.Stream(), binary);
         }
         else {
-          filter->amNnet3->Read(ki.Stream(), binary);
+          filter->am_nnet3->Read(ki.Stream(), binary);
         }
 
         // Only change the parameter if it has worked correctly
@@ -2035,11 +2035,11 @@ static void gst_kaldinnet2onlinedecoder_finalize(GObject * object) {
   if (filter->trans_model) {
     delete filter->trans_model;
   }
-  if (filter->amNnet2) {
-    delete filter->amNnet2;
+  if (filter->am_nnet2) {
+    delete filter->am_nnet2;
   }
-  if (filter->amNnet3) {
-    delete filter->amNnet3;
+  if (filter->am_nnet3) {
+    delete filter->am_nnet3;
   }
   if (filter->decode_fst) {
     delete filter->decode_fst;

@@ -94,8 +94,8 @@ struct _Gstkaldinnet2onlinedecoder {
 
   OnlineNnet2FeaturePipelineInfo *feature_info;
   TransitionModel *trans_model;
-  nnet2::AmNnet *amNnet2;
-  nnet3::AmNnetSimple *amNnet3;
+  nnet2::AmNnet *am_nnet2;
+  nnet3::AmNnetSimple *am_nnet3;
   fst::Fst<fst::StdArc> *decode_fst;
   fst::SymbolTable *word_syms;
   fst::SymbolTable *phone_syms;
