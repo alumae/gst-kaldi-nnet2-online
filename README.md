@@ -6,6 +6,10 @@ DNN acoustic models. The iVectors are adapted to the current audio stream automa
 
 
 # CHANGELOG
+2016-10-14: Support for nnet3 (including 'chain') models, thanks to @yifan! Not tested very carefully.
+Set the `nnet-mode` to 3 to use nnet3 models. Note that this property must be set before the other
+properties.
+
 2016-06-23: Got rid of the GStreamer property warnings at startup, thanks to @MathieuDuponchelle.
 
 2015-11-05: Minor changes for compatibility with Ubuntu 12.04 (and its older version
