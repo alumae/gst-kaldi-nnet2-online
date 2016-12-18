@@ -1058,6 +1058,10 @@ static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
 
   if (full_final_result.nbest_results.size() > 0) {
     BaseFloat frame_shift = filter->feature_info->FrameShiftInSeconds();
+    if (filter->nnet_mode == NNET3) {
+      frame_shift *= filter->nnet3_decoding_config->
+        decodable_opts.frame_subsampling_factor;
+    }
     json_object_set_new(root, "segment-start",  json_real(filter->segment_start_time));
 
     json_object_set_new(root, "segment-length",  json_real(full_final_result.nbest_results[0].num_frames * frame_shift));
