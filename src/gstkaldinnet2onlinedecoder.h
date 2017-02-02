@@ -106,6 +106,7 @@ struct _Gstkaldinnet2onlinedecoder {
   float traceback_period_in_secs;
   bool use_threaded_decoder;
   guint num_nbest;
+  guint num_phone_alignment;
   guint min_words_for_ivector;
   OnlineIvectorExtractorAdaptationState *adaptation_state;
   float segment_start_time;

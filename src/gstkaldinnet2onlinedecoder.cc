@@ -97,6 +97,7 @@ enum {
   PROP_BIG_LM_CONST_ARPA,
   PROP_USE_THREADED_DECODER,
   PROP_NUM_NBEST,
+  PROP_NUM_PHONE_ALIGNMENT,
   PROP_WORD_BOUNDARY_FILE,
   PROP_MIN_WORDS_FOR_IVECTOR,
   PROP_LAST
@@ -113,6 +114,7 @@ enum {
 #define DEFAULT_TRACEBACK_PERIOD_IN_SECS  0.5
 #define DEFAULT_USE_THREADED_DECODER false
 #define DEFAULT_NUM_NBEST 1
+#define DEFAULT_NUM_PHONE_ALIGNMENT 1
 #define DEFAULT_MIN_WORDS_FOR_IVECTOR 2
 
 /**
@@ -402,6 +404,17 @@ static void gst_kaldinnet2onlinedecoder_class_init(
 
   g_object_class_install_property(
       gobject_class,
+      PROP_NUM_PHONE_ALIGNMENT,
+      g_param_spec_uint(
+          "num-phone-alignment", "num-phone-alignment",
+          "number of hypotheses where alignment should be done",
+          1,
+          10000,
+          DEFAULT_NUM_PHONE_ALIGNMENT,
+          (GParamFlags) G_PARAM_READWRITE));
+
+  g_object_class_install_property(
+      gobject_class,
       PROP_MIN_WORDS_FOR_IVECTOR,
       g_param_spec_uint(
           "min-words-for-ivector", "threshold for updating ivector (adaptation state)",
@@ -488,6 +501,7 @@ static void gst_kaldinnet2onlinedecoder_init(
   filter->word_boundary_info_filename = g_strdup(DEFAULT_WORD_BOUNDARY_FILE);
 
   filter->do_phone_alignment = false;
+  filter->num_phone_alignment = 1;
 
   filter->simple_options = new SimpleOptionsGst();
 
@@ -730,6 +744,9 @@ static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
     case PROP_NUM_NBEST:
       filter->num_nbest = g_value_get_uint(value);
       break;
+    case PROP_NUM_PHONE_ALIGNMENT:
+      filter->num_phone_alignment = g_value_get_uint(value);
+      break;
     case PROP_MIN_WORDS_FOR_IVECTOR:
       filter->min_words_for_ivector = g_value_get_uint(value);
       break;
@@ -844,6 +861,9 @@ static void gst_kaldinnet2onlinedecoder_get_property(GObject * object,
       break;
     case PROP_NUM_NBEST:
       g_value_set_uint(value, filter->num_nbest);
+      break;
+    case PROP_NUM_PHONE_ALIGNMENT:
+      g_value_set_uint(value, filter->num_phone_alignment);
       break;
     case PROP_MIN_WORDS_FOR_IVECTOR:
       g_value_set_uint(value, filter->min_words_for_ivector);
@@ -1030,11 +1050,13 @@ static std::vector<NBestResult> gst_kaldinnet2onlinedecoder_nbest_results(
       word_in_hyp.word_id = words[j];
       nbest_result.words.push_back(word_in_hyp);
     }
-    if (i == 0) {
-      if (filter->do_phone_alignment) {
+    if (filter->do_phone_alignment) {
+      if (i <= filter->num_phone_alignment) {
         nbest_result.phone_alignment =
             gst_kaldinnet2onlinedecoder_phone_alignment(filter, alignment);
       }
+    }
+    if (i == 0) {
       if (filter->word_boundary_info) {
         nbest_result.word_alignment = gst_kaldinnet2onlinedecoder_word_alignment(filter, nbest_lats[i]);
       }
