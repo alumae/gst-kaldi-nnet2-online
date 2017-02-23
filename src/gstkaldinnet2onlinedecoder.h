@@ -89,13 +89,16 @@ struct _Gstkaldinnet2onlinedecoder {
   OnlineNnet2DecodingThreadedConfig *nnet2_decoding_threaded_config;
   OnlineNnet2DecodingConfig *nnet2_decoding_config;
   // support for nnet3
-  OnlineNnet3DecodingConfig *nnet3_decoding_config;
+  nnet3::NnetSimpleLoopedComputationOptions *nnet3_decodable_opts;
+  LatticeFasterDecoderConfig *decoder_opts;  
+  
   OnlineSilenceWeightingConfig *silence_weighting_config;
 
   OnlineNnet2FeaturePipelineInfo *feature_info;
   TransitionModel *trans_model;
   nnet2::AmNnet *am_nnet2;
   nnet3::AmNnetSimple *am_nnet3;
+  nnet3::DecodableNnetSimpleLoopedInfo *decodable_info_nnet3;
   fst::Fst<fst::StdArc> *decode_fst;
   fst::SymbolTable *word_syms;
   fst::SymbolTable *phone_syms;

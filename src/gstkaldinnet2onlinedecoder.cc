@@ -495,7 +495,8 @@ static void gst_kaldinnet2onlinedecoder_init(
   filter->feature_config = new OnlineNnet2FeaturePipelineConfig();
   filter->nnet2_decoding_config = new OnlineNnet2DecodingConfig();
   filter->nnet2_decoding_threaded_config = new OnlineNnet2DecodingThreadedConfig();
-  filter->nnet3_decoding_config = new OnlineNnet3DecodingConfig();
+  filter->nnet3_decodable_opts = new nnet3::NnetSimpleLoopedComputationOptions();
+  filter->decoder_opts = new LatticeFasterDecoderConfig();
   filter->silence_weighting_config = new OnlineSilenceWeightingConfig();
 
   filter->endpoint_config->Register(filter->simple_options);
@@ -505,7 +506,8 @@ static void gst_kaldinnet2onlinedecoder_init(
   // since the properties of the decoders overlap, they need to be set in the correct order
   // we'll redo this if the use-threaded-decoder property is changed
   if (DEFAULT_NNET_MODE == NNET2) {
-    filter->nnet3_decoding_config->Register(filter->simple_options);
+    filter->nnet3_decodable_opts->Register(filter->simple_options);
+    filter->decoder_opts->Register(filter->simple_options);
     if (DEFAULT_USE_THREADED_DECODER) {
       filter->nnet2_decoding_config->Register(filter->simple_options);
       filter->nnet2_decoding_threaded_config->Register(filter->simple_options);
@@ -521,7 +523,8 @@ static void gst_kaldinnet2onlinedecoder_init(
       filter->nnet2_decoding_threaded_config->Register(filter->simple_options);
       filter->nnet2_decoding_config->Register(filter->simple_options);
     }
-    filter->nnet3_decoding_config->Register(filter->simple_options);
+    filter->nnet3_decodable_opts->Register(filter->simple_options);
+    filter->decoder_opts->Register(filter->simple_options);
   }
 
   // will be set later
@@ -546,7 +549,7 @@ static void gst_kaldinnet2onlinedecoder_init(
   std::vector<std::pair<std::string, SimpleOptions::OptionInfo> > option_info_list;
   option_info_list = filter->simple_options->GetOptionInfoList();
   int32 i = 0;
-  for (vector<std::pair<std::string, SimpleOptions::OptionInfo> >::iterator dx =
+  for (std::vector<std::pair<std::string, SimpleOptions::OptionInfo> >::iterator dx =
       option_info_list.begin(); dx != option_info_list.end(); dx++) {
     std::pair<std::string, SimpleOptions::OptionInfo> result = (*dx);
     SimpleOptions::OptionInfo option_info = result.second;
@@ -634,7 +637,8 @@ void register_decoding_config(Gstkaldinnet2onlinedecoder *filter) {
     }
   }
   else {
-    filter->nnet3_decoding_config->Register(filter->simple_options);
+    filter->nnet3_decodable_opts->Register(filter->simple_options);
+    filter->decoder_opts->Register(filter->simple_options);
   }
 }
 
@@ -962,10 +966,8 @@ static void gst_kaldinnet2onlinedecoder_scale_lattice(
         inv_acoustic_scale = 1.0 / filter->nnet2_decoding_config->
             decodable_opts.acoustic_scale;
       }
-    }
-    else {
-      inv_acoustic_scale = 1.0 / filter->nnet3_decoding_config->
-        decodable_opts.acoustic_scale;
+    } else {
+      inv_acoustic_scale = 1.0 / filter->nnet3_decodable_opts->acoustic_scale;
     }
 
     fst::ScaleLattice(fst::AcousticLatticeScale(inv_acoustic_scale), &clat);
@@ -1059,8 +1061,7 @@ static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
   if (full_final_result.nbest_results.size() > 0) {
     BaseFloat frame_shift = filter->feature_info->FrameShiftInSeconds();
     if (filter->nnet_mode == NNET3) {
-      frame_shift *= filter->nnet3_decoding_config->
-        decodable_opts.frame_subsampling_factor;
+      frame_shift *= filter->nnet3_decodable_opts->frame_subsampling_factor;
     }
     json_object_set_new(root, "segment-start",  json_real(filter->segment_start_time));
 
@@ -1368,10 +1369,12 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
       feature_pipeline.InputFinished();
     }
 
-    if (silence_weighting.Active()) {
+    if (silence_weighting.Active() && 
+        feature_pipeline.IvectorFeature() != NULL) {
       silence_weighting.ComputeCurrentTraceback(decoder.Decoder());
-      silence_weighting.GetDeltaWeights(feature_pipeline.NumFramesReady(), &delta_weights);
-      feature_pipeline.UpdateFrameWeights(delta_weights);
+      silence_weighting.GetDeltaWeights(feature_pipeline.IvectorFeature()->NumFramesReady(), 
+                                        &delta_weights);
+      feature_pipeline.IvectorFeature()->UpdateFrameWeights(delta_weights);
     }
 
     decoder.AdvanceDecoding();
@@ -1432,8 +1435,9 @@ static void gst_kaldinnet2onlinedecoder_nnet3_unthreaded_decode_segment(Gstkaldi
 
   OnlineNnet2FeaturePipeline feature_pipeline(*(filter->feature_info));
   feature_pipeline.SetAdaptationState(*(filter->adaptation_state));
-  SingleUtteranceNnet3Decoder decoder(*(filter->nnet3_decoding_config),
-                                      *(filter->trans_model), *(filter->am_nnet3),
+  SingleUtteranceNnet3Decoder decoder(*(filter->decoder_opts),
+                                      *(filter->trans_model), 
+                                      *(filter->decodable_info_nnet3),
                                       *(filter->decode_fst),
                                       &feature_pipeline);
   OnlineSilenceWeighting silence_weighting(*(filter->trans_model),
@@ -1453,10 +1457,12 @@ static void gst_kaldinnet2onlinedecoder_nnet3_unthreaded_decode_segment(Gstkaldi
       feature_pipeline.InputFinished();
     }
 
-    if (silence_weighting.Active()) {
+    if (silence_weighting.Active() && 
+        feature_pipeline.IvectorFeature() != NULL) {
       silence_weighting.ComputeCurrentTraceback(decoder.Decoder());
-      silence_weighting.GetDeltaWeights(feature_pipeline.NumFramesReady(), &delta_weights);
-      feature_pipeline.UpdateFrameWeights(delta_weights);
+      silence_weighting.GetDeltaWeights(feature_pipeline.IvectorFeature()->NumFramesReady(), 
+                                        &delta_weights);
+      feature_pipeline.IvectorFeature()->UpdateFrameWeights(delta_weights);
     }
 
     decoder.AdvanceDecoding();
@@ -1801,6 +1807,11 @@ gst_kaldinnet2onlinedecoder_load_model(Gstkaldinnet2onlinedecoder * filter,
         }
         else {
           filter->am_nnet3->Read(ki.Stream(), binary);
+          // this object contains precomputed stuff that is used by all decodable
+          // objects.  It takes a pointer to am_nnet because if it has iVectors it has
+          // to modify the nnet to accept iVectors at intervals.
+          filter->decodable_info_nnet3 = new nnet3::DecodableNnetSimpleLoopedInfo(*(filter->nnet3_decodable_opts),
+                                                                                  filter->am_nnet3);          
         }
 
         // Only change the parameter if it has worked correctly
@@ -1873,13 +1884,9 @@ gst_kaldinnet2onlinedecoder_load_lm_fst(Gstkaldinnet2onlinedecoder * filter,
           delete filter->lm_compose_cache;
         }
 
-        fst::script::MutableFstClass *fst =
-            fst::script::MutableFstClass::Read(str, true);
-        fst::script::Project(fst, fst::PROJECT_OUTPUT);
-
-        const fst::Fst<fst::StdArc> *tmp_fst = fst->GetFst<fst::StdArc>();
-
-        fst::VectorFst<fst::StdArc> *std_lm_fst = new fst::VectorFst<fst::StdArc>(*tmp_fst);
+        fst::VectorFst<fst::StdArc> *std_lm_fst =
+            fst::VectorFst<fst::StdArc>::Read(str);
+        fst::Project(std_lm_fst, fst::PROJECT_OUTPUT);
 
         if (std_lm_fst->Properties(fst::kILabelSorted, true) == 0) {
           // Make sure LM is sorted on ilabel.
@@ -1892,13 +1899,11 @@ gst_kaldinnet2onlinedecoder_load_lm_fst(Gstkaldinnet2onlinedecoder * filter,
         // weight).
         int32 num_states_cache = 50000;
         fst::CacheOptions cache_opts(true, num_states_cache);
+        fst::MapFstOptions mapfst_opts(cache_opts);
         fst::StdToLatticeMapper<BaseFloat> mapper;
         filter->lm_fst = new fst::MapFst<fst::StdArc, LatticeArc,
-            fst::StdToLatticeMapper<BaseFloat> >(*std_lm_fst, mapper, cache_opts);
+            fst::StdToLatticeMapper<BaseFloat> >(*std_lm_fst, mapper, mapfst_opts);
         delete std_lm_fst;
-        delete fst;
-        // FIXME: maybe?
-        //delete tmp_fst;
 
         // The next fifteen or so lines are a kind of optimization and
         // can be ignored if you just want to understand what is going on.
@@ -2030,7 +2035,8 @@ static void gst_kaldinnet2onlinedecoder_finalize(GObject * object) {
   delete filter->endpoint_config;
   delete filter->feature_config;
   delete filter->nnet2_decoding_config;
-  delete filter->nnet3_decoding_config;
+  delete filter->nnet3_decodable_opts;
+  delete filter->decoder_opts;
   delete filter->silence_weighting_config;
   delete filter->simple_options;
   if (filter->feature_info) {

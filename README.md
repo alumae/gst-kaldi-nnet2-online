@@ -4,8 +4,10 @@
 GStreamer plugin that wraps Kaldi's SingleUtteranceNnet2Decoder. It requires iVector-adapted
 DNN acoustic models. The iVectors are adapted to the current audio stream automatically.
 
-
 # CHANGELOG
+2017-02-23: Now works with the latest Kaldi (also requires very fresh Kaldi). This also means
+that LSTM nnet3 models (including chain models) are supported (not tested).
+
 2016-10-14: Support for nnet3 (including 'chain') models, thanks to @yifan! Not tested very carefully.
 Set the `nnet-mode` property to 3 to use nnet3 models. Note that this property must be set before the other
 properties.
