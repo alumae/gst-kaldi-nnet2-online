@@ -5,6 +5,10 @@ GStreamer plugin that wraps Kaldi's SingleUtteranceNnet2Decoder. It requires iVe
 DNN acoustic models. The iVectors are adapted to the current audio stream automatically.
 
 # CHANGELOG
+2017-06-05: Now works with Kaldi 5.2 (i.e., the latest), also requires it. Decoder now also
+sets test mode for dropout and batch norm layers, and uses more memory-efficient 
+FST representation for reading the decode graph (HCLG.fst). 
+
 2017-02-23: Now works with the latest Kaldi (also requires very fresh Kaldi). This also means
 that LSTM nnet3 models (including chain models) are supported (not tested).
 
