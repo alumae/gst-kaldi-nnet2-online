@@ -27,7 +27,7 @@ EXTRA_LDLIBS += $(shell pkg-config --libs jansson)
 #Kaldi shared libraries required by the GStreamer plugin
 EXTRA_LDLIBS += -lkaldi-online2 -lkaldi-lat -lkaldi-decoder -lkaldi-feat -lkaldi-transform \
  -lkaldi-gmm -lkaldi-hmm \
- -lkaldi-tree -lkaldi-matrix  -lkaldi-util -lkaldi-base -lkaldi-thread -lkaldi-lm  \
+ -lkaldi-tree -lkaldi-matrix  -lkaldi-util -lkaldi-base -lkaldi-lm  \
  -lkaldi-nnet2 -lkaldi-nnet3 -lkaldi-cudamatrix -lkaldi-ivector -lkaldi-fstext -lkaldi-chain
 
 OBJFILES = gstkaldinnet2onlinedecoder.o simple-options-gst.o gst-audio-source.o kaldimarshal.o
