@@ -11,6 +11,7 @@ wget -N $BASE_URL/$MODEL/final.mdl || exit 1
 
 wget -N $BASE_URL/$GRAPH/graph/HCLG.fst || exit 1
 wget -N $BASE_URL/$GRAPH/graph/words.txt || exit 1
+wget -N $BASE_URL/$GRAPH/graph/phones/word_boundary.int || exit 1
 
 
 cat conf/ivector_extractor.conf | perl -npe 's/=.*nnet_a_gpu_online\//=/' > conf/ivector_extractor.fixed.conf
