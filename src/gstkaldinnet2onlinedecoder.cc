@@ -90,7 +90,6 @@ enum {
   PROP_WORD_SYMS,
   PROP_PHONE_SYMS,
   PROP_DO_PHONE_ALIGNMENT,
-  PROP_DO_WORD_CONFIDENCES,
   PROP_DO_ENDPOINTING,
   PROP_ADAPTATION_STATE,
   PROP_INVERSE_SCALE,
@@ -145,6 +144,7 @@ struct _PhoneAlignmentInfo {
   int32 phone_id;
   int32 start_frame;
   int32 length_in_frames;
+  double confidence;
 };
 
 struct _NBestResult {
@@ -298,15 +298,6 @@ static void gst_kaldinnet2onlinedecoder_class_init(
       g_param_spec_boolean(
           "do-phone-alignment", "Phoneme-level alignment",
           "If true, output phoneme-level alignment",
-          FALSE,
-          (GParamFlags) G_PARAM_READWRITE));
-
-  g_object_class_install_property(
-      gobject_class,
-      PROP_DO_WORD_CONFIDENCES,
-      g_param_spec_boolean(
-          "do-word-confidences", "Word confidences",
-          "If true, output word confidences in N-best results, together with word alignments (word-boundary-file property must be set)",
           FALSE,
           (GParamFlags) G_PARAM_READWRITE));
 
@@ -515,7 +506,6 @@ static void gst_kaldinnet2onlinedecoder_init(
   filter->word_boundary_info_filename = g_strdup(DEFAULT_WORD_BOUNDARY_FILE);
 
   filter->do_phone_alignment = false;
-  filter->do_word_confidences = false;
   filter->num_phone_alignment = 1;
 
   filter->simple_options = new SimpleOptionsGst();
@@ -703,9 +693,6 @@ static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
     case PROP_DO_PHONE_ALIGNMENT:
       filter->do_phone_alignment = g_value_get_boolean(value);
       break;
-    case PROP_DO_WORD_CONFIDENCES:
-      filter->do_word_confidences = g_value_get_boolean(value);
-      break;
     case PROP_DO_ENDPOINTING:
       filter->do_endpointing = g_value_get_boolean(value);
       break;
@@ -848,9 +835,6 @@ static void gst_kaldinnet2onlinedecoder_get_property(GObject * object,
     case PROP_DO_PHONE_ALIGNMENT:
       g_value_set_boolean(value, filter->do_phone_alignment);
       break;
-    case PROP_DO_WORD_CONFIDENCES:
-      g_value_set_boolean(value, filter->do_word_confidences);
-      break;
     case PROP_DO_ENDPOINTING:
       g_value_set_boolean(value, filter->do_endpointing);
       break;
@@ -934,7 +918,8 @@ static void gst_kaldinnet2onlinedecoder_get_property(GObject * object,
 }
 
 static std::vector<PhoneAlignmentInfo> gst_kaldinnet2onlinedecoder_phone_alignment(
-    Gstkaldinnet2onlinedecoder * filter, const std::vector<int32>& alignment) {
+    Gstkaldinnet2onlinedecoder * filter, const std::vector<int32>& alignment, 
+    const CompactLattice &clat) {
 
   std::vector<PhoneAlignmentInfo> result;
 
@@ -946,6 +931,24 @@ static std::vector<PhoneAlignmentInfo> gst_kaldinnet2onlinedecoder_phone_alignme
 
   GST_DEBUG_OBJECT(filter, "Split to phones finished");
 
+  std::vector<int32> phones;
+  for (size_t i = 0; i < split.size(); i++) {
+    KALDI_ASSERT(split[i].size() > 0);
+    phones.push_back(filter->trans_model->TransitionIdToPhone(split[i][0]));
+  }
+  Lattice lat;
+  ConvertLattice(clat, &lat);
+  ConvertLatticeToPhones(*filter->trans_model, &lat);
+  CompactLattice phone_clat;
+  ConvertLattice(lat, &phone_clat);  
+  MinimumBayesRiskOptions mbr_opts;
+  mbr_opts.decode_mbr = false; // we just want confidences
+  mbr_opts.print_silence = false; 
+  MinimumBayesRisk *mbr = new MinimumBayesRisk(phone_clat, phones, mbr_opts);
+  std::vector<BaseFloat> confidences = mbr->GetOneBestConfidences();
+  delete mbr;
+  
+
   int32 current_start_frame = 0;
 
   for (size_t i = 0; i < split.size(); i++) {
@@ -956,6 +959,9 @@ static std::vector<PhoneAlignmentInfo> gst_kaldinnet2onlinedecoder_phone_alignme
     alignment_info.phone_id = phone;
     alignment_info.start_frame = current_start_frame;
     alignment_info.length_in_frames = split[i].size();
+    if (confidences.size() > 0) {
+      alignment_info.confidence = confidences[i];
+    }
 
     result.push_back(alignment_info);
     current_start_frame += split[i].size();
@@ -1079,21 +1085,18 @@ static std::vector<NBestResult> gst_kaldinnet2onlinedecoder_nbest_results(
       nbest_result.words.push_back(word_in_hyp);
     }
     if (filter->do_phone_alignment) {
-      if (i <= filter->num_phone_alignment) {
+      if (i < filter->num_phone_alignment) {
         nbest_result.phone_alignment =
-            gst_kaldinnet2onlinedecoder_phone_alignment(filter, alignment);
+            gst_kaldinnet2onlinedecoder_phone_alignment(filter, alignment, clat);
       }
     }
     if (filter->word_boundary_info) {
-      std::vector<BaseFloat> confidences;
-      if (filter->do_word_confidences) {
-        MinimumBayesRiskOptions mbr_opts;
-        mbr_opts.decode_mbr = false; // we just want confidences
-        mbr_opts.print_silence = false; 
-        MinimumBayesRisk *mbr = new MinimumBayesRisk(clat, words, mbr_opts);
-        confidences = mbr->GetOneBestConfidences();
-        delete mbr;
-      }
+      MinimumBayesRiskOptions mbr_opts;
+      mbr_opts.decode_mbr = false; // we just want confidences
+      mbr_opts.print_silence = false; 
+      MinimumBayesRisk *mbr = new MinimumBayesRisk(clat, words, mbr_opts);
+      std::vector<BaseFloat> confidences = mbr->GetOneBestConfidences();
+      delete mbr;
       nbest_result.word_alignment = gst_kaldinnet2onlinedecoder_word_alignment(filter, nbest_lats[i], confidences);
     }
     nbest_results.push_back(nbest_result);
@@ -1148,6 +1151,8 @@ static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
                                 json_real(alignment_info.start_frame * frame_shift));
             json_object_set_new(alignment_info_json_object, "length",
                                 json_real(alignment_info.length_in_frames * frame_shift));
+            json_object_set_new(alignment_info_json_object, "confidence",
+                                json_real(alignment_info.confidence));
             json_array_append(phone_alignment_json_arr, alignment_info_json_object);
           }
           json_object_set_new(nbest_result_json_object, "phone-alignment", phone_alignment_json_arr);
@@ -1165,10 +1170,8 @@ static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
                               json_real(alignment_info.start_frame * frame_shift));
           json_object_set_new(alignment_info_json_object, "length",
                               json_real(alignment_info.length_in_frames * frame_shift));
-          if (filter->do_word_confidences) {
-            json_object_set_new(alignment_info_json_object, "confidence",
-                                json_real(alignment_info.confidence));
-          }
+          json_object_set_new(alignment_info_json_object, "confidence",
+                              json_real(alignment_info.confidence));
           json_array_append(word_alignment_json_arr, alignment_info_json_object);
         }
         json_object_set_new(nbest_result_json_object, "word-alignment", word_alignment_json_arr);

@@ -5,9 +5,11 @@ GStreamer plugin that wraps Kaldi's SingleUtteranceNnet2Decoder. It requires iVe
 DNN acoustic models. The iVectors are adapted to the current audio stream automatically.
 
 # CHANGELOG
-2017-08-09: Implemented word confidences. Set the `do-word-confidences=true` and also set
-the `word-boundary-file=dir/word_boundary.int`, since the word confidences will be included
-with the word alignment information.
+2017-08-09: Also implemented phone confidence scores, which are included with phone alignments.
+Note that phone confidence scores are very inaccurate.
+
+2017-08-09: Implemented word confidences. Confidence scores are included with word alignments,
+so set `word-boundary-file=dir/word_boundary.int`, since this invokes word alignment generation.
 
 2017-06-05: Now works with Kaldi 5.2 (i.e., the latest), also requires it. Decoder now also
 sets test mode for dropout and batch norm layers, and uses more memory-efficient 

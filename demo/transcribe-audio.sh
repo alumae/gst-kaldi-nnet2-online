@@ -21,9 +21,11 @@ kaldinnet2onlinedecoder \
   model=final.mdl \
   fst=HCLG.fst \
   word-syms=words.txt \
+  phone-syms=phones.txt \
   word-boundary-file=word_boundary.int \
   num-nbest=3 \
-  do-word-confidences=true \
+  num-phone-alignment=3 \
+  do-phone-alignment=true \
   feature-type=mfcc \
   mfcc-config=conf/mfcc.conf \
   ivector-extraction-config=conf/ivector_extractor.fixed.conf \

@@ -11,6 +11,7 @@ wget -N $BASE_URL/$MODEL/final.mdl || exit 1
 
 wget -N $BASE_URL/$GRAPH/graph/HCLG.fst || exit 1
 wget -N $BASE_URL/$GRAPH/graph/words.txt || exit 1
+wget -N $BASE_URL/$GRAPH/graph/phones.txt || exit 1
 wget -N $BASE_URL/$GRAPH/graph/phones/word_boundary.int || exit 1
 
 
