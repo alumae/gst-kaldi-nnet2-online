@@ -32,7 +32,7 @@ EXTRA_LDLIBS += -lkaldi-online2 -lkaldi-lat -lkaldi-decoder -lkaldi-feat -lkaldi
 
 OBJFILES = gstkaldinnet2onlinedecoder.o simple-options-gst.o gst-audio-source.o kaldimarshal.o
 
-LIBNAME=gstkaldionline2
+LIBNAME=gstkaldinnet2onlinedecoder
 
 LIBFILE = lib$(LIBNAME).so
 BINFILES= $(LIBFILE)
