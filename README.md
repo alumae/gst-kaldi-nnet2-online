@@ -12,8 +12,8 @@ Note that phone confidence scores are very inaccurate.
 so set `word-boundary-file=dir/word_boundary.int`, since this invokes word alignment generation.
 
 2017-06-05: Now works with Kaldi 5.2 (i.e., the latest), also requires it. Decoder now also
-sets test mode for dropout and batch norm layers, and uses more memory-efficient 
-FST representation for reading the decode graph (HCLG.fst). 
+sets test mode for dropout and batch norm layers, and uses more memory-efficient
+FST representation for reading the decode graph (HCLG.fst).
 
 2017-02-23: Now works with the latest Kaldi (also requires very fresh Kaldi). This also means
 that LSTM nnet3 models (including chain models) are supported (not tested).
@@ -43,7 +43,7 @@ Also removed the individual signals that were used for pushing out phone alignme
 
 
 2015-04-30: Added functionality to change models (FST, acoustic model,
-big language model) after initial initialization. Added functionality to 
+big language model) after initial initialization. Added functionality to
 ouput phone aligment information (see properties `do-phone-alignment`
 and `phone-syms`). Both additions by Ricard Marxer (@rikrd).
 
@@ -56,27 +56,27 @@ that specifies how often intermediate results are sent to the client (default is
 *NB:* this update requires Kaldi revision 5036 or later.
 
 2015-03-05: Threaded decoder can now be selected at configuration time, using the
-`use-threaded-decoder` property. *NB:* this property should be set before other 
+`use-threaded-decoder` property. *NB:* this property should be set before other
 properties. Endpointing and partial results might still not work as expected with the threaded decoder.
 
-2015-03-01: one can now optionally use the threaded online decoder. Citing 
-Daniel Povey who developed the code in Kaldi: "This should make it possible to 
-decode in real-time with larger models and graphs than before, because 
+2015-03-01: one can now optionally use the threaded online decoder. Citing
+Daniel Povey who developed the code in Kaldi: "This should make it possible to
+decode in real-time with larger models and graphs than before, because
 the decoding and the nnet evaluation are in separate threads and can be done in parallel."
 Use `make CPPFLAGS=-DTHREADED_DECODER` to compile it. Note that the endpointing
-and partial results might not work as expected with the threaded decoder, 
+and partial results might not work as expected with the threaded decoder,
 working on the fix.
 
 2015-01-09: Added language model rescoring functionality. In order to use it,
 you have to specify two properties: `lm-fst` and `big-lm-const-arpa`. The `lm-fst`
-property gives the location of the *original* LM (the one that was used fpr 
+property gives the location of the *original* LM (the one that was used fpr
 compiling the HCLG.fst used during decoding). The `big-lm-const-arpa` property
 gives the location of the big LM used that is used to rescore the final lattices.
-The big LM must be in the 'ConstArpaLm' format, use the Kaldi's 
+The big LM must be in the 'ConstArpaLm' format, use the Kaldi's
 `utils/build_const_arpa_lm.sh` script to produce it from the ARPA format.
 
 2014-11-11: the plugin saves the adaptation state between silence-segmented utterances and between
-multiple decoding sessions of the same plugin instance. 
+multiple decoding sessions of the same plugin instance.
 That is, if you start decoding a new stream, the adaptation state of the
 previous stream is used (unless it's the first stream, in which case a global mean is used).
 Use the `adaptation-state` plugin property to get, and set the adaptation state. Use an empty string
@@ -114,7 +114,7 @@ Now we can compile this plugin. Change to `src` of this project:
 
 Compile, specifying Kaldi's root directory:
 
-    make depend
+    KALDI_ROOT=/path/of/kaldi-trunk make depend
     KALDI_ROOT=/path/of/kaldi-trunk make
 
 This should result in 'libgstkaldionline2.so'.
@@ -146,7 +146,7 @@ The output should list all plugin properties with their default values:
     [...]
       max-nnet-batch-size : Maximum batch size we use in neural-network decodable object, in cases where we are not constrained by currently available frames (this will rarely make a difference)
                             flags: readable, writable
-                            Integer. Range: -2147483648 - 2147483647 Default: 256 
+                            Integer. Range: -2147483648 - 2147483647 Default: 256
 
     Element Signals:
       "partial-result" :  void user_function (GstElement* object,
@@ -169,11 +169,11 @@ https://github.com/alumae/kaldi-gstreamer-server, in file kaldigstserver/decoder
 
 # STRUCTURED RESULTS
 
-Below is a sample of JSON-encoded full recognition results, pushed out 
+Below is a sample of JSON-encoded full recognition results, pushed out
 using the `full-final-result` signal. This sample was generated using
-`do-phone-alignment=true` and `num-nbest=10` (although due to pruning it 
+`do-phone-alignment=true` and `num-nbest=10` (although due to pruning it
 includes only two n-best hypotheses). Note that the words in the file specified
-by `word-syms` and the phones in the file specified in `phone-syms` must 
+by `word-syms` and the phones in the file specified in `phone-syms` must
 be encoded using UTF-8, otherwise the output won't be valid JSON.
 
     {
@@ -381,7 +381,7 @@ be encoded using UTF-8, otherwise the output won't be valid JSON.
 
 # CITING
 
-If you use this software for research, you can cite the following paper 
+If you use this software for research, you can cite the following paper
 (available here: http://ebooks.iospress.nl/volumearticle/37996):
 
     @inproceedigs{alumae2014,

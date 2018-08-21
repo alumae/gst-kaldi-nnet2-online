@@ -6,3 +6,4 @@ src/kaldimarshal.*
 # editor files
 .lvimrc
 tags
+*~
