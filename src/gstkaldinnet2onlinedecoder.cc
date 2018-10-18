@@ -1626,7 +1626,10 @@ gst_kaldinnet2onlinedecoder_query (GstPad *pad, GstObject * parent, GstQuery * q
     case GST_QUERY_CAPS: {
       if (filter->feature_info == NULL) {
         filter->feature_info = new OnlineNnet2FeaturePipelineInfo(*(filter->feature_config));
-        filter->sample_rate = (int) filter->feature_info->mfcc_opts.frame_opts.samp_freq;
+	if (strcmp((filter->feature_config->feature_type).c_str(), "plp") == 0)
+	  filter->sample_rate = (int) filter->feature_info->plp_opts.frame_opts.samp_freq;
+	else
+	  filter->sample_rate = (int) filter->feature_info->mfcc_opts.frame_opts.samp_freq;
       }
       GstCaps *new_caps = gst_caps_new_simple ("audio/x-raw",
             "format", G_TYPE_STRING, "S16LE",
@@ -2042,7 +2045,10 @@ gst_kaldinnet2onlinedecoder_allocate(
       filter->feature_info = new OnlineNnet2FeaturePipelineInfo(*(filter->feature_config));
   }
 
-  filter->sample_rate = (int) filter->feature_info->mfcc_opts.frame_opts.samp_freq;
+  if (strcmp((filter->feature_config->feature_type).c_str(), "plp") == 0)
+    filter->sample_rate = (int) filter->feature_info->plp_opts.frame_opts.samp_freq;
+  else
+    filter->sample_rate = (int) filter->feature_info->mfcc_opts.frame_opts.samp_freq;
 
   if (!filter->adaptation_state) {
     filter->adaptation_state = new OnlineIvectorExtractorAdaptationState(
