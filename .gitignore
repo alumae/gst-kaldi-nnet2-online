@@ -7,3 +7,8 @@ src/kaldimarshal.*
 .lvimrc
 tags
 *~
+
+# Downloaded model files for the demo.
+demo/models/
+conf/
+ivector_extractor/
