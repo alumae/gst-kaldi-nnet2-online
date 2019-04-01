@@ -56,13 +56,13 @@ class DemoApp(object):
         self.fakesink = Gst.ElementFactory.make("fakesink", "fakesink")
         
         if self.asr:
-          model_file = "final.mdl"
+          model_file = "models/final.mdl"
           if not os.path.isfile(model_file):
               print >> sys.stderr, "Models not downloaded? Run prepare-models.sh first!"
               sys.exit(1)
-          self.asr.set_property("fst", "HCLG.fst")
-          self.asr.set_property("model", "final.mdl")
-          self.asr.set_property("word-syms", "words.txt")
+          self.asr.set_property("fst", "models/HCLG.fst")
+          self.asr.set_property("model", model_file)
+          self.asr.set_property("word-syms", "models/words.txt")
           self.asr.set_property("feature-type", "mfcc")
           self.asr.set_property("mfcc-config", "conf/mfcc.conf")
           self.asr.set_property("ivector-extraction-config", "conf/ivector_extractor.fixed.conf")
