@@ -142,7 +142,7 @@ The output should list all plugin properties with their default values:
                             Boolean. Default: false
       model               : Filename of the acoustic model
                             flags: readable, writable
-                            String. Default: "final.mdl"
+                            String. Default: "models/final.mdl"
     [...]
       max-nnet-batch-size : Maximum batch size we use in neural-network decodable object, in cases where we are not constrained by currently available frames (this will rarely make a difference)
                             flags: readable, writable
