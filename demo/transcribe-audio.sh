@@ -8,7 +8,7 @@ fi
 
 ! GST_PLUGIN_PATH=../src gst-inspect-1.0 kaldinnet2onlinedecoder > /dev/null 2>&1 && echo "Compile the plugin in ../src first" && exit 1;
 
-if [ ! -f HCLG.fst ]; then
+if [ ! -f models/HCLG.fst ]; then
     echo "Run ./prepare-models.sh first to download models"
     exit 1;
 fi
