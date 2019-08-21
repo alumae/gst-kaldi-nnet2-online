@@ -1502,79 +1502,97 @@ static void gst_kaldinnet2onlinedecoder_nnet3_unthreaded_decode_segment(Gstkaldi
                                       *(filter->decodable_info_nnet3),
                                       *(filter->decode_fst),
                                       &feature_pipeline);
-  OnlineSilenceWeighting silence_weighting(*(filter->trans_model),
-          *(filter->silence_weighting_config));
-
+  
   Vector<BaseFloat> wave_part = Vector<BaseFloat>(chunk_length);
-  std::vector<std::pair<int32, BaseFloat> > delta_weights;
   GST_DEBUG_OBJECT(filter, "Reading audio in %d sample chunks...",
-                   wave_part.Dim());
-  BaseFloat last_traceback = 0.0;
-  BaseFloat num_seconds_decoded = 0.0;
-  while (true) {
-    more_data = filter->audio_source->Read(&wave_part);
+                wave_part.Dim());
+  
+  int32 frame_offset = 0;
 
-    feature_pipeline.AcceptWaveform(filter->sample_rate, wave_part);
-    if (!more_data) {
-      feature_pipeline.InputFinished();
-    }
+  int32 frame_subsampling_factor = filter->nnet3_decodable_opts->frame_subsampling_factor;
+  BaseFloat frame_shift = filter->feature_info->FrameShiftInSeconds();
 
-    if (silence_weighting.Active() && 
-        feature_pipeline.IvectorFeature() != NULL) {
-      silence_weighting.ComputeCurrentTraceback(decoder.Decoder());
-      silence_weighting.GetDeltaWeights(feature_pipeline.IvectorFeature()->NumFramesReady(), 
-                                        &delta_weights);
-      feature_pipeline.IvectorFeature()->UpdateFrameWeights(delta_weights);
-    }
+  while (more_data) {
+    decoder.InitDecoding(frame_offset);
+    OnlineSilenceWeighting silence_weighting(*(filter->trans_model),
+          *(filter->silence_weighting_config), 
+          frame_subsampling_factor);
+    std::vector<std::pair<int32, BaseFloat> > delta_weights;
 
-    decoder.AdvanceDecoding();
-    GST_DEBUG_OBJECT(filter, "%d frames decoded", decoder.NumFramesDecoded());
-    num_seconds_decoded += 1.0 * wave_part.Dim() / filter->sample_rate;
-    filter->total_time_decoded += 1.0 * wave_part.Dim() / filter->sample_rate;
-    GST_DEBUG_OBJECT(filter, "Total amount of audio processed: %f seconds", filter->total_time_decoded);
-    if (!more_data) {
-      break;
-    }
-    if (filter->do_endpointing
-        && (decoder.NumFramesDecoded() > 0)
-        && decoder.EndpointDetected(*(filter->endpoint_config))) {
-      GST_DEBUG_OBJECT(filter, "Endpoint detected!");
-      break;
-    }
+    BaseFloat last_traceback = 0.0;
+    BaseFloat num_seconds_decoded = 0.0;
 
-    if ((num_seconds_decoded - last_traceback > traceback_period_secs)
-        && (decoder.NumFramesDecoded() > 0)) {
-      Lattice lat;
-      decoder.GetBestPath(false, &lat);
-      gst_kaldinnet2onlinedecoder_partial_result(filter, lat);
-      last_traceback += traceback_period_secs;
-    }
-  }
+    while (true) {
 
-  if (num_seconds_decoded > 0.1) {
-    GST_DEBUG_OBJECT(filter, "Getting lattice..");
-    decoder.FinalizeDecoding();
-    CompactLattice clat;
-    bool end_of_utterance = true;
-    decoder.GetLattice(end_of_utterance, &clat);
-    GST_DEBUG_OBJECT(filter, "Lattice done");
-    if ((filter->lm_fst != NULL) && (filter->big_lm_const_arpa != NULL)) {
-      GST_DEBUG_OBJECT(filter, "Rescoring lattice with a big LM");
-      CompactLattice rescored_lat;
-      if (gst_kaldinnet2onlinedecoder_rescore_big_lm(filter, clat, rescored_lat)) {
-        clat = rescored_lat;
+      more_data = filter->audio_source->Read(&wave_part);
+
+      feature_pipeline.AcceptWaveform(filter->sample_rate, wave_part);
+      if (!more_data) {
+        feature_pipeline.InputFinished();
+      }
+
+      if (silence_weighting.Active() && 
+          feature_pipeline.IvectorFeature() != NULL) {
+        silence_weighting.ComputeCurrentTraceback(decoder.Decoder());
+        silence_weighting.GetDeltaWeights(feature_pipeline.NumFramesReady(), 
+                                          &delta_weights);
+        feature_pipeline.UpdateFrameWeights(delta_weights, 
+                                    frame_offset * frame_subsampling_factor);
+      }
+
+      decoder.AdvanceDecoding();
+      GST_DEBUG_OBJECT(filter, "%d frames decoded", decoder.NumFramesDecoded());
+      num_seconds_decoded += 1.0 * wave_part.Dim() / filter->sample_rate;
+      filter->total_time_decoded += 1.0 * wave_part.Dim() / filter->sample_rate;
+      GST_DEBUG_OBJECT(filter, "Total amount of audio processed: %f seconds", filter->total_time_decoded);
+      if (!more_data) {
+        break;
+      }
+      if (filter->do_endpointing
+          && (decoder.NumFramesDecoded() > 0)
+          && decoder.EndpointDetected(*(filter->endpoint_config))) {
+        GST_DEBUG_OBJECT(filter, "Endpoint detected!");
+        break;
+      }
+
+      if ((num_seconds_decoded - last_traceback > traceback_period_secs)
+          && (decoder.NumFramesDecoded() > 0)) {
+        Lattice lat;
+        decoder.GetBestPath(false, &lat);
+        gst_kaldinnet2onlinedecoder_partial_result(filter, lat);
+        last_traceback += traceback_period_secs;
       }
     }
 
-    guint num_words = 0;
-    gst_kaldinnet2onlinedecoder_final_result(filter, clat, &num_words);
-    if (num_words >= filter->min_words_for_ivector) {
-      // Only update adaptation state if the utterance contained enough words
-      feature_pipeline.GetAdaptationState(filter->adaptation_state);
+    if (num_seconds_decoded > 0.1) {
+      GST_DEBUG_OBJECT(filter, "Getting lattice..");
+      decoder.FinalizeDecoding();
+      frame_offset += decoder.NumFramesDecoded();
+      CompactLattice clat;
+      bool end_of_utterance = true;
+      decoder.GetLattice(end_of_utterance, &clat);
+      GST_DEBUG_OBJECT(filter, "Lattice done");
+      if ((filter->lm_fst != NULL) && (filter->big_lm_const_arpa != NULL)) {
+        GST_DEBUG_OBJECT(filter, "Rescoring lattice with a big LM");
+        CompactLattice rescored_lat;
+        if (gst_kaldinnet2onlinedecoder_rescore_big_lm(filter, clat, rescored_lat)) {
+          clat = rescored_lat;
+        }
+      }
+
+      guint num_words = 0;
+      gst_kaldinnet2onlinedecoder_final_result(filter, clat, &num_words);
+      if (num_words >= filter->min_words_for_ivector) {
+        // Only update adaptation state if the utterance contained enough words
+        feature_pipeline.GetAdaptationState(filter->adaptation_state);
+      }
+    } else {
+      GST_DEBUG_OBJECT(filter, "Less than 0.1 seconds decoded, discarding");
     }
-  } else {
-    GST_DEBUG_OBJECT(filter, "Less than 0.1 seconds decoded, discarding");
+
+    filter->segment_start_time = frame_offset * frame_shift * frame_subsampling_factor;
   }
+  
 }
 
 static void gst_kaldinnet2onlinedecoder_loop(
