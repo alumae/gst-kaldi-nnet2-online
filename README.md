@@ -5,6 +5,10 @@ GStreamer plugin that wraps Kaldi's SingleUtteranceNnet2Decoder. It requires iVe
 DNN acoustic models. The iVectors are adapted to the current audio stream automatically.
 
 # CHANGELOG
+
+2019-08-25: Updated for changed Kaldi API for stream processing, make sure Kaldi is at least
+revision 6c816e5.
+
 2017-08-09: Also implemented phone confidence scores, which are included with phone alignments.
 Note that phone confidence scores are very inaccurate.
 
@@ -88,7 +92,7 @@ Kaldi revision 4582 or later.
 
 The following works on Linux (I'm using Debian 'testing'; Ubuntu 12.04 also works).
 
-Compile Kaldi trunk, using the shared configuration:
+Compile Kaldi trunk (make sure you are using the latest version), using the shared configuration:
 In Kaldi's 'src' directory:
 
     ./configure --shared
