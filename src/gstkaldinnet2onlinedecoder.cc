@@ -1434,7 +1434,7 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
     if (silence_weighting.Active() && 
         feature_pipeline.IvectorFeature() != NULL) {
       silence_weighting.ComputeCurrentTraceback(decoder.Decoder());
-      silence_weighting.GetDeltaWeights(feature_pipeline.IvectorFeature()->NumFramesReady(), 
+      silence_weighting.GetDeltaWeights(feature_pipeline.IvectorFeature()->NumFramesReady(), 0,
                                         &delta_weights);
       feature_pipeline.IvectorFeature()->UpdateFrameWeights(delta_weights);
     }
@@ -1535,9 +1535,9 @@ static void gst_kaldinnet2onlinedecoder_nnet3_unthreaded_decode_segment(Gstkaldi
           feature_pipeline.IvectorFeature() != NULL) {
         silence_weighting.ComputeCurrentTraceback(decoder.Decoder());
         silence_weighting.GetDeltaWeights(feature_pipeline.NumFramesReady(), 
+                                          frame_offset * frame_subsampling_factor,
                                           &delta_weights);
-        feature_pipeline.UpdateFrameWeights(delta_weights, 
-                                    frame_offset * frame_subsampling_factor);
+        feature_pipeline.UpdateFrameWeights(delta_weights);
       }
 
       decoder.AdvanceDecoding();
