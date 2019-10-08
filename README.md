@@ -6,6 +6,9 @@ DNN acoustic models. The iVectors are adapted to the current audio stream automa
 
 # CHANGELOG
 
+2019-10-08: Added online CMVN functionality. Needs Kaldi as of Sep 7, 2019 or later. Also
+refactored N-best list, word alignment and confidence handling.
+
 2019-08-25: Updated for changed Kaldi API for stream processing, make sure Kaldi is at least
 revision 6c816e5.
 
