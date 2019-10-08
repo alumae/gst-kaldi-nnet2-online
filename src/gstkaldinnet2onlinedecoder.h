@@ -39,6 +39,7 @@
 #include "lat/lattice-functions.h"
 #include "lm/const-arpa-lm.h"
 #include "lat/word-align-lattice.h"
+#include "lat/determinize-lattice-pruned.h"
 
 namespace kaldi {
 
@@ -91,6 +92,7 @@ struct _Gstkaldinnet2onlinedecoder {
   // support for nnet3
   nnet3::NnetSimpleLoopedComputationOptions *nnet3_decodable_opts;
   LatticeFasterDecoderConfig *decoder_opts;  
+  fst::DeterminizeLatticePrunedOptions *det_opts;
   
   OnlineSilenceWeightingConfig *silence_weighting_config;
 
@@ -112,6 +114,7 @@ struct _Gstkaldinnet2onlinedecoder {
   guint num_phone_alignment;
   guint min_words_for_ivector;
   OnlineIvectorExtractorAdaptationState *adaptation_state;
+  OnlineCmvnState *cmvn_state;
   float segment_start_time;
   float total_time_decoded;
 

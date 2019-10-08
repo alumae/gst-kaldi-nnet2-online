@@ -92,6 +92,7 @@ enum {
   PROP_DO_PHONE_ALIGNMENT,
   PROP_DO_ENDPOINTING,
   PROP_ADAPTATION_STATE,
+  PROP_CMVN_STATE,
   PROP_INVERSE_SCALE,
   PROP_LMWT_SCALE,
   PROP_CHUNK_LENGTH_IN_SECS,
@@ -207,6 +208,7 @@ static void gst_kaldinnet2onlinedecoder_load_big_lm(Gstkaldinnet2onlinedecoder *
 static void gst_kaldinnet2onlinedecoder_load_word_boundary_info(Gstkaldinnet2onlinedecoder * filter,
                                                                 const GValue * value);
 
+static void gst_kaldinnet2onlinedecoder_reset_cmvn_state(Gstkaldinnet2onlinedecoder * filter);
 
 static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
                                                      guint prop_id,
@@ -315,6 +317,14 @@ static void gst_kaldinnet2onlinedecoder_class_init(
       PROP_ADAPTATION_STATE,
       g_param_spec_string("adaptation-state", "Adaptation state",
                           "Current adaptation state, in stringified form, set to empty string to reset",
+                          "",
+                          (GParamFlags) G_PARAM_READWRITE));
+
+  g_object_class_install_property(
+      gobject_class,
+      PROP_CMVN_STATE,
+      g_param_spec_string("cmvn-state", "CMVN state",
+                          "Current online CMVN state, in stringified form, set to empty string to reset",
                           "",
                           (GParamFlags) G_PARAM_READWRITE));
 
@@ -546,6 +556,9 @@ static void gst_kaldinnet2onlinedecoder_init(
     filter->decoder_opts->Register(filter->simple_options);
   }
 
+  filter->det_opts = new fst::DeterminizeLatticePrunedOptions();
+  filter->det_opts->Register(filter->simple_options);
+
   // will be set later
   filter->feature_info = NULL;
   filter->sample_rate = 0;
@@ -560,6 +573,7 @@ static void gst_kaldinnet2onlinedecoder_init(
   filter->use_threaded_decoder = false;
   filter->num_nbest = DEFAULT_NUM_NBEST;
   filter->min_words_for_ivector = DEFAULT_MIN_WORDS_FOR_IVECTOR;
+  
 
   // init properties from various Kaldi Opts
   GstElementClass * klass = GST_ELEMENT_GET_CLASS(filter);
@@ -741,12 +755,38 @@ static void gst_kaldinnet2onlinedecoder_set_property(GObject * object,
             filter->adaptation_state = new OnlineIvectorExtractorAdaptationState(
                 filter->feature_info->ivector_extractor_info);
           }
-		  g_free(adaptation_state_string);
+		      g_free(adaptation_state_string);
         } else {
           GST_DEBUG_OBJECT(filter, "Resetting adaptation state");
           delete filter->adaptation_state;
           filter->adaptation_state = new OnlineIvectorExtractorAdaptationState(
               filter->feature_info->ivector_extractor_info);
+        }
+      }
+      break;
+    case PROP_CMVN_STATE:
+      {
+        if (G_VALUE_HOLDS_STRING(value)) {
+          gchar * cmvn_state_string = g_value_dup_string(value);
+          if (strlen(cmvn_state_string) > 0) {
+            std::istringstream str(cmvn_state_string);
+            try {
+              filter->cmvn_state->Read(str, false);
+            } catch (std::runtime_error& e) {
+              GST_WARNING_OBJECT(filter, "Failed to read CMVN state from given string, resetting instead");
+              delete filter->cmvn_state;
+              gst_kaldinnet2onlinedecoder_reset_cmvn_state(filter);
+            }
+          } else {
+            GST_DEBUG_OBJECT(filter, "Resetting CMVN state");
+            delete filter->cmvn_state;
+            gst_kaldinnet2onlinedecoder_reset_cmvn_state(filter);
+          }
+		      g_free(cmvn_state_string);
+        } else {
+          GST_DEBUG_OBJECT(filter, "Resetting CMVN state");
+          delete filter->cmvn_state;
+          gst_kaldinnet2onlinedecoder_reset_cmvn_state(filter);
         }
       }
       break;
@@ -868,6 +908,15 @@ static void gst_kaldinnet2onlinedecoder_get_property(GObject * object,
           g_value_set_string(value, "");
       }
       break;
+    case PROP_CMVN_STATE:
+      string_stream.clear();
+      if (filter->cmvn_state) {
+          filter->cmvn_state->Write(string_stream, false);
+          g_value_set_string(value, string_stream.str().c_str());
+      } else {
+          g_value_set_string(value, "");
+      }
+      break;
     case PROP_NUM_NBEST:
       g_value_set_uint(value, filter->num_nbest);
       break;
@@ -948,7 +997,6 @@ static std::vector<PhoneAlignmentInfo> gst_kaldinnet2onlinedecoder_phone_alignme
   std::vector<BaseFloat> confidences = mbr->GetOneBestConfidences();
   delete mbr;
   
-
   int32 current_start_frame = 0;
 
   for (size_t i = 0; i < split.size(); i++) {
@@ -970,24 +1018,26 @@ static std::vector<PhoneAlignmentInfo> gst_kaldinnet2onlinedecoder_phone_alignme
 }
 
 static std::vector<WordAlignmentInfo>  gst_kaldinnet2onlinedecoder_word_alignment(
-    Gstkaldinnet2onlinedecoder * filter, const Lattice &lat, 
-    const std::vector<BaseFloat> &confidences) {
+    Gstkaldinnet2onlinedecoder * filter, const Lattice &lat,
+    std::vector<int32> &words, CompactLattice &full_clat) {
   std::vector<WordAlignmentInfo> result;
-  std::vector<int32> words, times, lengths;
-  CompactLattice clat;
-  ConvertLattice(lat, &clat);
+  CompactLattice clat, det_lat;
+  
   CompactLattice aligned_clat;
-  if (!WordAlignLattice(clat, *(filter->trans_model), *(filter->word_boundary_info), 0, &aligned_clat)) {
-    GST_ERROR_OBJECT(filter, "Failed to word-align the lattice");
-    return result;
-  }
 
-  if (!CompactLatticeToWordAlignment(aligned_clat, &words, &times, &lengths)) {
-    GST_ERROR_OBJECT(filter, "Failed to do word alignment");
-    return result;
-  }
-  KALDI_ASSERT(words.size() == times.size() &&
-               words.size() == lengths.size());
+  ConvertLattice(lat, &clat);
+
+  MinimumBayesRiskOptions mbr_opts;
+  mbr_opts.decode_mbr = false; // we just want confidences
+  mbr_opts.print_silence = false; 
+
+  MinimumBayesRisk mbr = MinimumBayesRisk(full_clat, words, mbr_opts);
+  std::vector<BaseFloat> confidences = mbr.GetOneBestConfidences();
+
+  const std::vector<std::pair<BaseFloat, BaseFloat> > &times = mbr.GetOneBestTimes();
+
+  GST_DEBUG_OBJECT(filter, "Word alignment produced %lu words", words.size());
+  KALDI_ASSERT(words.size() == times.size());
   int confidence_i = 0;
   for (size_t i = 0; i < words.size(); i++) {
     if (words[i] == 0)  {
@@ -996,8 +1046,8 @@ static std::vector<WordAlignmentInfo>  gst_kaldinnet2onlinedecoder_word_alignmen
     }
     WordAlignmentInfo alignment_info;
     alignment_info.word_id = words[i];
-    alignment_info.start_frame = times[i];
-    alignment_info.length_in_frames = lengths[i];
+    alignment_info.start_frame = times[i].first;
+    alignment_info.length_in_frames = times[i].second - times[i].first;
     if (confidences.size() > 0) {
       alignment_info.confidence = confidences[confidence_i++];
     }
@@ -1060,6 +1110,14 @@ static std::vector<NBestResult> gst_kaldinnet2onlinedecoder_nbest_results(
 
   // FIXME: is it needed?
   //gst_kaldinnet2onlinedecoder_scale_lattice(filter, clat);
+
+  if (filter->word_boundary_info) {
+    CompactLattice aligned_clat;
+    if (WordAlignLattice(clat, *(filter->trans_model), *(filter->word_boundary_info), 0, &aligned_clat)) {
+      clat = aligned_clat;
+    }
+  }
+  
   Lattice lat;
   ConvertLattice(clat, &lat);
 
@@ -1091,13 +1149,7 @@ static std::vector<NBestResult> gst_kaldinnet2onlinedecoder_nbest_results(
       }
     }
     if (filter->word_boundary_info) {
-      MinimumBayesRiskOptions mbr_opts;
-      mbr_opts.decode_mbr = false; // we just want confidences
-      mbr_opts.print_silence = false; 
-      MinimumBayesRisk *mbr = new MinimumBayesRisk(clat, words, mbr_opts);
-      std::vector<BaseFloat> confidences = mbr->GetOneBestConfidences();
-      delete mbr;
-      nbest_result.word_alignment = gst_kaldinnet2onlinedecoder_word_alignment(filter, nbest_lats[i], confidences);
+      nbest_result.word_alignment = gst_kaldinnet2onlinedecoder_word_alignment(filter, nbest_lats[i], words, clat);
     }
     nbest_results.push_back(nbest_result);
   }
@@ -1184,7 +1236,7 @@ static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
 
   char *ret_strings = json_dumps(root, JSON_REAL_PRECISION(6));
 
-  json_decref( root );
+  json_decref(root);
   std::string result;
   result = ret_strings;
   return result;
@@ -1308,10 +1360,12 @@ static void gst_kaldinnet2onlinedecoder_threaded_decode_segment(Gstkaldinnet2onl
                                                       BaseFloat traceback_period_secs,
                                                       Vector<BaseFloat> *remaining_wave_part) {
     SingleUtteranceNnet2DecoderThreaded decoder(*(filter->nnet2_decoding_threaded_config),
-                                        *(filter->trans_model), *(filter->am_nnet2),
+                                        *(filter->trans_model), 
+                                        *(filter->am_nnet2),
                                         *(filter->decode_fst),
                                         *(filter->feature_info),
-                                        *(filter->adaptation_state));
+                                        *(filter->adaptation_state),
+                                        *(filter->cmvn_state));
 
     Vector<BaseFloat> wave_part = Vector<BaseFloat>(chunk_length);
     GST_DEBUG_OBJECT(filter, "Reading audio in %d sample chunks...",
@@ -1411,7 +1465,8 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
   OnlineNnet2FeaturePipeline feature_pipeline(*(filter->feature_info));
   feature_pipeline.SetAdaptationState(*(filter->adaptation_state));
   SingleUtteranceNnet2Decoder decoder(*(filter->nnet2_decoding_config),
-                                      *(filter->trans_model), *(filter->am_nnet2),
+                                      *(filter->trans_model), 
+                                      *(filter->am_nnet2),
                                       *(filter->decode_fst),
                                       &feature_pipeline);
   OnlineSilenceWeighting silence_weighting(*(filter->trans_model),
@@ -1483,6 +1538,7 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
     if (num_words >= filter->min_words_for_ivector) {
       // Only update adaptation state if the utterance contained enough words
       feature_pipeline.GetAdaptationState(filter->adaptation_state);
+      feature_pipeline.GetCmvnState(filter->cmvn_state);
     }
   } else {
     GST_DEBUG_OBJECT(filter, "Less than 0.1 seconds decoded, discarding");
@@ -1497,6 +1553,7 @@ static void gst_kaldinnet2onlinedecoder_nnet3_unthreaded_decode_segment(Gstkaldi
 
   OnlineNnet2FeaturePipeline feature_pipeline(*(filter->feature_info));
   feature_pipeline.SetAdaptationState(*(filter->adaptation_state));
+  feature_pipeline.SetCmvnState(*(filter->cmvn_state));
   SingleUtteranceNnet3Decoder decoder(*(filter->decoder_opts),
                                       *(filter->trans_model), 
                                       *(filter->decodable_info_nnet3),
@@ -1536,8 +1593,7 @@ static void gst_kaldinnet2onlinedecoder_nnet3_unthreaded_decode_segment(Gstkaldi
         silence_weighting.ComputeCurrentTraceback(decoder.Decoder());
         silence_weighting.GetDeltaWeights(feature_pipeline.NumFramesReady(), 
                                           &delta_weights);
-        feature_pipeline.UpdateFrameWeights(delta_weights, 
-                                    frame_offset * frame_subsampling_factor);
+        feature_pipeline.UpdateFrameWeights(delta_weights);
       }
 
       decoder.AdvanceDecoding();
@@ -1585,6 +1641,7 @@ static void gst_kaldinnet2onlinedecoder_nnet3_unthreaded_decode_segment(Gstkaldi
       if (num_words >= filter->min_words_for_ivector) {
         // Only update adaptation state if the utterance contained enough words
         feature_pipeline.GetAdaptationState(filter->adaptation_state);
+        feature_pipeline.GetCmvnState(filter->cmvn_state);
       }
     } else {
       GST_DEBUG_OBJECT(filter, "Less than 0.1 seconds decoded, discarding");
@@ -1644,10 +1701,10 @@ gst_kaldinnet2onlinedecoder_query (GstPad *pad, GstObject * parent, GstQuery * q
     case GST_QUERY_CAPS: {
       if (filter->feature_info == NULL) {
         filter->feature_info = new OnlineNnet2FeaturePipelineInfo(*(filter->feature_config));
-	if (strcmp((filter->feature_config->feature_type).c_str(), "plp") == 0)
-	  filter->sample_rate = (int) filter->feature_info->plp_opts.frame_opts.samp_freq;
-	else
-	  filter->sample_rate = (int) filter->feature_info->mfcc_opts.frame_opts.samp_freq;
+        if (strcmp((filter->feature_config->feature_type).c_str(), "plp") == 0)
+          filter->sample_rate = (int) filter->feature_info->plp_opts.frame_opts.samp_freq;
+        else
+          filter->sample_rate = (int) filter->feature_info->mfcc_opts.frame_opts.samp_freq;
       }
       GstCaps *new_caps = gst_caps_new_simple ("audio/x-raw",
             "format", G_TYPE_STRING, "S16LE",
@@ -1745,40 +1802,40 @@ static GstFlowReturn gst_kaldinnet2onlinedecoder_chain(GstPad * pad,
 static void
 gst_kaldinnet2onlinedecoder_load_word_syms(Gstkaldinnet2onlinedecoder * filter,
                                            const GValue * value) {
-    if (G_VALUE_HOLDS_STRING(value)) {
-        gchar* str = g_value_dup_string(value);
+  if (G_VALUE_HOLDS_STRING(value)) {
+    gchar* str = g_value_dup_string(value);
 
-        // Check if the model is not empty
-        if (strcmp(str, "") != 0) {
-            try {
-                GST_DEBUG_OBJECT(filter, "Loading word symbols file: %s", str);
+    // Check if the model is not empty
+    if (strcmp(str, "") != 0) {
+      try {
+        GST_DEBUG_OBJECT(filter, "Loading word symbols file: %s", str);
 
-                fst::SymbolTable * new_word_syms = fst::SymbolTable::ReadText(str);
-                if (!new_word_syms) {
-                    throw std::runtime_error("Word symbol table not read.");
-                }
-
-                // Delete old objects if needed
-                if (filter->word_syms) {
-                    delete filter->word_syms;
-                }
-
-                // Replace the symbol table
-                filter->word_syms = new_word_syms;
-
-                // Only change the parameter if it has worked correctly
-                g_free(filter->word_syms_filename);
-                filter->word_syms_filename = g_strdup(str);
-
-            } catch (std::runtime_error& e) {
-              GST_WARNING_OBJECT(filter, "Error loading the word symbol table: %s", str);
-            }
+        fst::SymbolTable * new_word_syms = fst::SymbolTable::ReadText(str);
+        if (!new_word_syms) {
+          throw std::runtime_error("Word symbol table not read.");
         }
 
-        g_free(str);
-    } else {
-        GST_WARNING_OBJECT(filter, "Word symbols filename property must be a string. Ignoring it.");
+        // Delete old objects if needed
+        if (filter->word_syms) {
+          delete filter->word_syms;
+        }
+
+        // Replace the symbol table
+        filter->word_syms = new_word_syms;
+
+        // Only change the parameter if it has worked correctly
+        g_free(filter->word_syms_filename);
+        filter->word_syms_filename = g_strdup(str);
+
+      } catch (std::runtime_error& e) {
+        GST_WARNING_OBJECT(filter, "Error loading the word symbol table: %s", str);
+      }
     }
+
+    g_free(str);
+  } else {
+    GST_WARNING_OBJECT(filter, "Word symbols filename property must be a string. Ignoring it.");
+  }
 }
 
 static void
@@ -2018,6 +2075,16 @@ gst_kaldinnet2onlinedecoder_load_lm_fst(Gstkaldinnet2onlinedecoder * filter,
   }
 }
 
+static void 
+gst_kaldinnet2onlinedecoder_reset_cmvn_state(Gstkaldinnet2onlinedecoder * filter) {
+  Matrix<double> global_cmvn_stats;
+  if (filter->feature_info->global_cmvn_stats_rxfilename != "")
+      ReadKaldiObject(filter->feature_info->global_cmvn_stats_rxfilename,
+                      &global_cmvn_stats);
+  GST_DEBUG_OBJECT(filter, "Resetting online CMVN state");                      
+  filter->cmvn_state = new OnlineCmvnState(global_cmvn_stats);
+}
+
 static void
 gst_kaldinnet2onlinedecoder_load_big_lm(Gstkaldinnet2onlinedecoder * filter,
                                         const GValue * value) {
@@ -2068,11 +2135,11 @@ gst_kaldinnet2onlinedecoder_allocate(
   else
     filter->sample_rate = (int) filter->feature_info->mfcc_opts.frame_opts.samp_freq;
 
-  if (!filter->adaptation_state) {
-    filter->adaptation_state = new OnlineIvectorExtractorAdaptationState(
-        filter->feature_info->ivector_extractor_info);
-  }
+  filter->adaptation_state = new OnlineIvectorExtractorAdaptationState(
+      filter->feature_info->ivector_extractor_info);
 
+  gst_kaldinnet2onlinedecoder_reset_cmvn_state(filter);
+  
   return true;
 }
 
