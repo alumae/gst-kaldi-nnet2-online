@@ -2079,8 +2079,8 @@ gst_kaldinnet2onlinedecoder_load_lm_fst(Gstkaldinnet2onlinedecoder * filter,
 static void 
 gst_kaldinnet2onlinedecoder_reset_cmvn_state(Gstkaldinnet2onlinedecoder * filter) {
   Matrix<double> global_cmvn_stats;
-  if (filter->feature_info->global_cmvn_stats_rxfilename != "")
-      ReadKaldiObject(filter->feature_info->global_cmvn_stats_rxfilename,
+  if (filter->feature_config->global_cmvn_stats_rxfilename != "")
+      ReadKaldiObject(filter->feature_config->global_cmvn_stats_rxfilename,
                       &global_cmvn_stats);
   GST_DEBUG_OBJECT(filter, "Resetting online CMVN state");                      
   filter->cmvn_state = new OnlineCmvnState(global_cmvn_stats);
