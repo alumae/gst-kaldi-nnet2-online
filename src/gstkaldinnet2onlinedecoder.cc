@@ -545,13 +545,8 @@ static void gst_kaldinnet2onlinedecoder_init(
       filter->nnet2_decoding_config->Register(filter->simple_options);
     }
   } else {
-    if (DEFAULT_USE_THREADED_DECODER) {
-      filter->nnet2_decoding_config->Register(filter->simple_options);
-      filter->nnet2_decoding_threaded_config->Register(filter->simple_options);
-    } else {
-      filter->nnet2_decoding_threaded_config->Register(filter->simple_options);
-      filter->nnet2_decoding_config->Register(filter->simple_options);
-    }
+    // nnet3 doesn't have a threaded decoder
+    filter->nnet2_decoding_config->Register(filter->simple_options);
     filter->nnet3_decodable_opts->Register(filter->simple_options);
     filter->decoder_opts->Register(filter->simple_options);
   }
