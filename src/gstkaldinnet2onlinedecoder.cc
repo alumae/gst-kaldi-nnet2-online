@@ -1157,6 +1157,7 @@ static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
 
   json_t *root = json_object();
   json_t *result_json_object = json_object();
+  json_t *nbest_json_arr = json_array();
   json_object_set_new( root, "status", json_integer(0));
 
   json_object_set_new( root, "result", result_json_object);
@@ -1172,13 +1173,13 @@ static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
 
     json_object_set_new(root, "segment-length",  json_real(full_final_result.nbest_results[0].num_frames * frame_shift));
     json_object_set_new(root, "total-length",  json_real(filter->total_time_decoded));
-    json_t *nbest_json_arr = json_array();
     for(std::vector<NBestResult>::const_iterator it = full_final_result.nbest_results.begin();
         it != full_final_result.nbest_results.end(); ++it) {
       NBestResult nbest_result = *it;
       json_t *nbest_result_json_object = json_object();
-      json_object_set_new(nbest_result_json_object, "transcript",
-                          json_string(gst_kaldinnet2onlinedecoder_words_in_hyp_to_string(filter, nbest_result.words).c_str()));
+      std::string transcript_str = gst_kaldinnet2onlinedecoder_words_in_hyp_to_string(filter, nbest_result.words);
+      json_t* transcript_json_string = json_stringn(transcript_str.c_str(), transcript_str.length());
+      json_object_set_new(nbest_result_json_object, "transcript", transcript_json_string);
       json_object_set_new(nbest_result_json_object, "likelihood",  json_real(nbest_result.likelihood));
       json_array_append( nbest_json_arr, nbest_result_json_object );
       if (nbest_result.phone_alignment.size() > 0) {
@@ -1223,17 +1224,28 @@ static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
         }
         json_object_set_new(nbest_result_json_object, "word-alignment", word_alignment_json_arr);
       }
-
     }
 
     json_object_set_new(result_json_object, "hypotheses", nbest_json_arr);
   }
 
   char *ret_strings = json_dumps(root, JSON_REAL_PRECISION(6));
-
+  size_t arr_size = json_array_size(nbest_json_arr);
+  for (size_t i = 0; i < arr_size; i++) {
+   	json_t* element = json_array_get(nbest_json_arr, i);
+  	if(element!=NULL){
+		json_t* transcript = json_object_get(element, "transcript"); 
+                if(transcript!=NULL){
+			json_decref(transcript);
+		}
+	   	json_decref(element);
+	}
+  }
+  json_decref(nbest_json_arr);
   json_decref(root);
   std::string result;
   result = ret_strings;
+  free(ret_strings);
   return result;
 }
 
@@ -1273,6 +1285,7 @@ static void gst_kaldinnet2onlinedecoder_final_result(
           gst_kaldinnet2onlinedecoder_full_final_result_to_json(filter, full_final_result);
       GST_DEBUG_OBJECT(filter, "Final JSON: %s", full_final_result_as_json.c_str());
       g_signal_emit(filter, gst_kaldinnet2onlinedecoder_signals[FULL_FINAL_RESULT_SIGNAL], 0, full_final_result_as_json.c_str());
+      
 
     }
   }
@@ -2130,10 +2143,14 @@ gst_kaldinnet2onlinedecoder_allocate(
     filter->sample_rate = (int) filter->feature_info->plp_opts.frame_opts.samp_freq;
   else
     filter->sample_rate = (int) filter->feature_info->mfcc_opts.frame_opts.samp_freq;
-
+  if(filter->adaptation_state){
+  	delete filter->adaptation_state;
+  }
   filter->adaptation_state = new OnlineIvectorExtractorAdaptationState(
       filter->feature_info->ivector_extractor_info);
-
+  if(filter->cmvn_state){
+  	delete filter->cmvn_state;
+  }
   gst_kaldinnet2onlinedecoder_reset_cmvn_state(filter);
   
   return true;
